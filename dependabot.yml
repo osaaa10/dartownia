@@ -1,0 +1,14 @@
+# Raz w miesiącu GitHub sam zaproponuje aktualizacje bibliotek (jako Pull Request do zatwierdzenia).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      wszystkie:
+        patterns: ["*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
