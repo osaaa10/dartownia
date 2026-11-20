@@ -2,6 +2,7 @@
 // 1. Nagrany lektor: pliki w public/voice/ w repozytorium (wszyscy słyszą ten sam głos).
 //    Liczby w kilku stylach: public/voice/<styl>/<liczba>.mp3, zwroty: public/voice/<zwrot>[-N].mp3.
 //    Każdy gracz wybiera styl dla przedziałów wyników (np. 0–49 spokojnie, 180 ekstatycznie).
+//    Nicki graczy: public/voice/names/<nick bez polskich znaków, małymi literami>.mp3.
 // 2. Głos telefonu (Web Speech API): gdy nagrań brak albo brakuje konkretnej liczby.
 
 import { audioCtx, loadClip } from "./audio";
@@ -33,9 +34,31 @@ export const DEFAULT_VOICE_STYLES: Record<RangeKey, VoiceStyle> = {
   r180: "ecstatic",
 };
 
-const PHRASES = ["zostaje", "bust", "gameshot", "match"] as const;
+const PHRASES = [
+  "zostaje", "bust", "gameshot", "match", "teraz", "do-konca", "zakonczenie",
+  "potrojne", "podwojne", "tripel", "double", "te", "de", "bull", "bullseye",
+] as const;
+
+/** Jak lektor czyta lotki w podpowiedzi zakończenia. */
+export const DART_NAMINGS = [
+  { id: "potrojne", label: "potrójne / podwójne", treble: "potrojne", double: "podwojne", tts: ["potrójne", "podwójne"] },
+  { id: "tripel", label: "tripel / double", treble: "tripel", double: "double", tts: ["tripel", "double"] },
+  { id: "tede", label: "te / de", treble: "te", double: "de", tts: ["te", "de"] },
+] as const;
+export type DartNaming = (typeof DART_NAMINGS)[number]["id"];
+export type BullName = "bull" | "bullseye";
 type Phrase = (typeof PHRASES)[number];
 const MAX_PHRASE_VARIANTS = 5;
+
+/** Nazwa pliku z nickiem gracza: „Oleś” → voice/names/oles.mp3, „KMP” → voice/names/kmp.mp3. */
+export function nickSlug(name: string): string {
+  return name
+    .replace(/[łŁ]/g, "l")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
 
 export function rangeOf(n: number) {
   return VOICE_RANGES.find((r) => n >= r.from && n <= r.to) ?? VOICE_RANGES[0];
@@ -48,6 +71,17 @@ export interface Announcement {
   player: string;
   nextName?: string;
   nextScore?: number;
+  /** Sugerowane zakończenie dla następnego gracza, np. ["T20", "T20", "D5"]. */
+  nextCheckout?: string[];
+}
+
+/** Lotka słownie dla głosu telefonu: „T20” → „potrójne 20”. */
+function dartWords(label: string, naming: DartNaming, bull: BullName): string {
+  const n = DART_NAMINGS.find((d) => d.id === naming) ?? DART_NAMINGS[0];
+  if (label === "BULL") return bull;
+  if (label.startsWith("T")) return `${n.tts[0]} ${label.slice(1)}`;
+  if (label.startsWith("D")) return `${n.tts[1]} ${label.slice(1)}`;
+  return label.startsWith("S") ? label.slice(1) : label;
 }
 
 class Speech {
@@ -58,6 +92,16 @@ class Speech {
   usePack = true;
   announceNext = true;
   callRemaining = true;
+  /** „Do końca 130” dla następnego gracza (do 180). */
+  callToGo = true;
+  /** Sugerowane zakończenie dla następnego gracza. */
+  callCheckout = true;
+  dartNaming: DartNaming = "potrojne";
+  bullName: BullName = "bull";
+  /** „Bust!” */
+  callBust = true;
+  /** „Game shot” / „Game shot i mecz”. */
+  callWin = true;
   /** Czy znaleziono nagranego lektora. */
   packFound = false;
   /** Wybrany styl dla każdego przedziału. */
@@ -66,7 +110,7 @@ class Speech {
   available: Record<RangeKey, VoiceStyle[]> = { r0: [], r50: [], r100: [], r150: [], r180: [] };
   /** Stary układ: liczby bez stylu w public/voice/<liczba>.mp3. */
   flat = false;
-  phraseVariants: Record<Phrase, number> = { zostaje: 0, bust: 0, gameshot: 0, match: 0 };
+  phraseVariants = Object.fromEntries(PHRASES.map((p) => [p, 0])) as Record<Phrase, number>;
   private lastPhrase = new Map<Phrase, number>();
 
   private sources: AudioBufferSourceNode[] = [];
@@ -138,6 +182,18 @@ class Speech {
     if (n > 1 && v === this.lastPhrase.get(p)) v = (v % n) + 1;
     this.lastPhrase.set(p, v);
     return v === 1 ? p : `${p}-${v}`;
+  }
+
+  /** Ścieżka nagranego nicku gracza albo null, gdy go nie ma. */
+  async nickPath(name: string | undefined): Promise<string | null> {
+    const slug = name ? nickSlug(name) : "";
+    if (!slug) return null;
+    return (await loadClip(`voice/names/${slug}.mp3`)) ? `names/${slug}` : null;
+  }
+
+  /** Wczytuje w tle nicki graczy, żeby zapowiedź nie czekała na pobranie. */
+  preloadNicks(names: string[]) {
+    for (const n of names) void this.nickPath(n);
   }
 
   /** Wczytuje w tle nagrania wybranych stylów (i zapisuje je do pracy offline). */
@@ -223,34 +279,95 @@ class Speech {
     return true;
   }
 
+  /** Nagrania jednej lotki: „T20” → [treble, 20]; null, gdy czegoś brakuje. */
+  private dartPaths(label: string): string[] | null {
+    if (label === "BULL") {
+      const b = this.phrase(this.bullName) ?? this.phrase("bull");
+      return b ? [b] : null;
+    }
+    const nm = DART_NAMINGS.find((d) => d.id === this.dartNaming) ?? DART_NAMINGS[0];
+    const prefix = label.startsWith("T") ? this.phrase(nm.treble) : label.startsWith("D") ? this.phrase(nm.double) : "";
+    const num = Number(label.replace(/^[SDT]/, ""));
+    const n = Number.isFinite(num) && num > 0 ? this.pathFor(num, "remaining") : null;
+    if (prefix === null || !n) return null;
+    return prefix ? [prefix, n] : [n];
+  }
+
+  /** Zapowiedź następnego gracza: „Teraz Pitek… do końca 130… zakończenie T20 T20 D5”. */
+  private async nextPart(a: Announcement): Promise<string[]> {
+    if (a.kind === "match" || !a.nextName) return [];
+    const out: string[] = [];
+    const nick = this.announceNext ? await this.nickPath(a.nextName) : null;
+    if (nick) {
+      const t = this.phrase("teraz");
+      if (t) out.push(t);
+      out.push(nick);
+    }
+    const left = a.nextScore ?? 0;
+    if (this.callToGo && left > 0 && left <= 180) {
+      const dk = this.phrase("do-konca");
+      const n = this.pathFor(left, "remaining");
+      if (dk && n) out.push(dk, n);
+    }
+    if (this.callCheckout && a.nextCheckout?.length) {
+      const darts = a.nextCheckout.map((d) => this.dartPaths(d));
+      if (darts.every((d): d is string[] => !!d)) {
+        const z = this.phrase("zakonczenie");
+        if (z) out.push(z);
+        out.push(...darts.flat());
+      }
+    }
+    return out;
+  }
+
   async announce(a: Announcement, force = false) {
     if (!this.enabled && !force) return;
 
     if (this.usePack && this.packFound) {
-      let names: (string | null)[];
-      if (a.kind === "bust") names = [this.phrase("bust")];
-      else if (a.kind === "leg") names = [this.phrase("gameshot")];
-      else if (a.kind === "match") names = [this.phrase("match") ?? this.phrase("gameshot")];
+      // Główna część: wynik, bust albo wygrana (null = wyłączone w ustawieniach).
+      let main: string[] | null;
+      let missing = false;
+      if (a.kind === "bust") main = this.callBust ? [this.phrase("bust") ?? ""] : null;
+      else if (a.kind === "leg") main = this.callWin ? [this.phrase("gameshot") ?? ""] : null;
+      else if (a.kind === "match") main = this.callWin ? [this.phrase("match") ?? this.phrase("gameshot") ?? ""] : null;
       else {
-        names = [this.pathFor(a.scored, "score")];
+        main = [this.pathFor(a.scored, "score") ?? ""];
         if (this.callRemaining && a.remaining > 0 && a.remaining <= 180) {
           const z = this.phrase("zostaje");
           const rem = this.pathFor(a.remaining, "remaining");
-          if (z && rem) names.push(z, rem);
+          if (z && rem) main.push(z, rem);
         }
       }
-      if (names.every((n): n is string => !!n)) {
-        let ok = await this.playPack(names);
-        if (!ok && a.kind === "turn" && names.length > 1) ok = await this.playPack([names[0]]);
+      if (main && !main[0]) missing = true;
+      if (!missing) {
+        const next = await this.nextPart(a);
+        const all = [...(main ?? []), ...next];
+        if (all.length === 0) return;
+        let ok = await this.playPack(all);
+        if (!ok && main?.[0]) ok = await this.playPack([main[0]]);
         if (ok) return;
       }
     }
 
-    const then = this.announceNext && a.nextName ? ` Teraz ${a.nextName}, ${a.nextScore}.` : "";
-    if (a.kind === "bust") return this.say(`Bust!${then}`, force);
-    if (a.kind === "match") return this.say(`Checkout ${a.scored}! Mecz wygrywa ${a.player}!`, force);
-    if (a.kind === "leg") return this.say(`Checkout ${a.scored}! Leg wygrywa ${a.player}.${then}`, force);
-    return this.say(`${a.scored === 180 ? "Sto osiemdziesiąt!" : a.scored}. Zostaje ${a.remaining}.${then}`, force);
+    // Głos telefonu.
+    const parts: string[] = [];
+    if (a.kind === "bust") {
+      if (this.callBust) parts.push("Bust!");
+    } else if (a.kind === "match") {
+      if (this.callWin) parts.push(`Checkout ${a.scored}! Mecz wygrywa ${a.player}!`);
+    } else if (a.kind === "leg") {
+      if (this.callWin) parts.push(`Checkout ${a.scored}! Leg wygrywa ${a.player}.`);
+    } else {
+      parts.push(`${a.scored === 180 ? "Sto osiemdziesiąt!" : a.scored}.`);
+      if (this.callRemaining) parts.push(`Zostaje ${a.remaining}.`);
+    }
+    if (a.kind !== "match" && a.nextName) {
+      if (this.announceNext) parts.push(`Teraz ${a.nextName}.`);
+      const left = a.nextScore ?? 0;
+      if (this.callToGo && left > 0) parts.push(`Do końca ${left}.`);
+      if (this.callCheckout && a.nextCheckout?.length) parts.push(`Zakończenie: ${a.nextCheckout.map((d) => dartWords(d, this.dartNaming, this.bullName)).join(", ")}.`);
+    }
+    if (parts.length) return this.say(parts.join(" "), force);
   }
 }
 

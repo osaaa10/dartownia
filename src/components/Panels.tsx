@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, Play, Trash2, Trophy, Upload, Volume2 } from "lucide-react";
 import { SOUND_EVENTS, sound, type SoundEvent } from "../lib/audio";
-import { DEFAULT_VOICE_STYLES, VOICE_RANGES, VOICE_STYLES, speech, type RangeKey, type VoiceStyle } from "../lib/speech";
+import { DART_NAMINGS, DEFAULT_VOICE_STYLES, VOICE_RANGES, VOICE_STYLES, speech, type BullName, type DartNaming, type RangeKey, type VoiceStyle } from "../lib/speech";
 import { describeSettings, replay } from "../engine/game";
 import { careerStats, gameStats, type CareerStats, type StatsFilter } from "../engine/stats";
 import type { Game } from "../engine/types";
@@ -504,7 +504,10 @@ function AudioSettings({ store, open }: { store: AppStore; open: boolean }) {
 
   const customCount = Object.values(found).filter(Boolean).length;
   const test = () =>
-    void speech.announce({ kind: "turn", scored: 100, remaining: 121, player: "Kasia", nextName: "Tomek", nextScore: 301 }, true);
+    void speech.announce(
+      { kind: "turn", scored: 100, remaining: 121, player: "Kasia", nextName: "Osa", nextScore: 130, nextCheckout: ["T20", "T20", "D5"] },
+      true,
+    );
 
   return (
     <>
@@ -597,9 +600,6 @@ function AudioSettings({ store, open }: { store: AppStore; open: boolean }) {
               <Row label="Nagrany lektor" desc="Znaleziony w repozytorium — wszyscy słyszą ten sam głos">
                 <Switch checked={s.usePack} onChange={(v) => set((x) => ({ ...x, usePack: v }))} label="Nagrany lektor" />
               </Row>
-              <Row label="Mów, ile zostało" desc="„Sto… zostaje sto dwadzieścia jeden” (do 180), zawsze spokojnym głosem">
-                <Switch checked={s.callRemaining} onChange={(v) => set((x) => ({ ...x, callRemaining: v }))} label="Mów, ile zostało" />
-              </Row>
               {s.usePack && <VoiceStylePicker store={store} available={avail} />}
             </>
           ) : (
@@ -636,10 +636,54 @@ function AudioSettings({ store, open }: { store: AppStore; open: boolean }) {
               <Row label="Szybkość mowy">
                 <Slider value={Math.round(s.speechRate * 100)} min={70} max={150} onChange={(v) => set((x) => ({ ...x, speechRate: v / 100 }))} label="Szybkość mowy" />
               </Row>
-              <Row label="Zapowiadaj następnego" desc="„Teraz Tomek, 301”">
-                <Switch checked={s.announceNext} onChange={(v) => set((x) => ({ ...x, announceNext: v }))} label="Zapowiadaj następnego" />
-              </Row>
             </>
+          )}
+          <div className="border-b border-line/60 pt-3 text-xs font-semibold uppercase tracking-wider text-muted">Co mówi lektor</div>
+          <Row label="Ile zostało" desc="„Sześćdziesiąt… zostaje sto dwadzieścia jeden” po rzucie">
+            <Switch checked={s.callRemaining} onChange={(v) => set((x) => ({ ...x, callRemaining: v }))} label="Ile zostało" />
+          </Row>
+          <Row label="Bust" desc="„Bust!” po przebiciu">
+            <Switch checked={s.callBust} onChange={(v) => set((x) => ({ ...x, callBust: v }))} label="Bust" />
+          </Row>
+          <Row label="Wygrana" desc="„Game shot” po legu i meczu">
+            <Switch checked={s.callWin} onChange={(v) => set((x) => ({ ...x, callWin: v }))} label="Wygrana" />
+          </Row>
+          <Row label="Kto teraz rzuca" desc="„Teraz Pitek” — nagrany nick albo głos telefonu">
+            <Switch checked={s.announceNext} onChange={(v) => set((x) => ({ ...x, announceNext: v }))} label="Kto teraz rzuca" />
+          </Row>
+          <Row label="Ile do końca" desc="„Do końca sto trzydzieści” dla następnego gracza (nagrany lektor: do 180)">
+            <Switch checked={s.callToGo} onChange={(v) => set((x) => ({ ...x, callToGo: v }))} label="Ile do końca" />
+          </Row>
+          <Row label="Podpowiedź zakończenia" desc="„Zakończenie: T20, T20, D5” — z uwzględnieniem ulubionych double gracza">
+            <Switch checked={s.callCheckout} onChange={(v) => set((x) => ({ ...x, callCheckout: v }))} label="Podpowiedź zakończenia" />
+          </Row>
+          {s.callCheckout && (
+            <div className="border-b border-line/60 py-3">
+              <div className="mb-1.5 text-sm font-medium">Jak czytać lotki</div>
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  value={s.dartNaming}
+                  onChange={(e) => set((x) => ({ ...x, dartNaming: e.target.value as DartNaming }))}
+                  className="h-10 rounded-lg border border-line bg-surface px-2 text-sm"
+                  aria-label="Jak czytać lotki"
+                >
+                  {DART_NAMINGS.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      T20 = {d.label.split(" / ")[0]} 20
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={s.bullName}
+                  onChange={(e) => set((x) => ({ ...x, bullName: e.target.value as BullName }))}
+                  className="h-10 rounded-lg border border-line bg-surface px-2 text-sm"
+                  aria-label="Jak czytać bulla"
+                >
+                  <option value="bull">50 = bull</option>
+                  <option value="bullseye">50 = bullseye</option>
+                </select>
+              </div>
+            </div>
           )}
           <div className="py-3">
             <Button size="sm" onClick={test}>
