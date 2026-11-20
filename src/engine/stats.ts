@@ -120,6 +120,23 @@ function countDoubles(s: PlayerStats, t: TurnResult, out: Game["settings"]["outM
   }
 }
 
+/**
+ * Ile kolejek z rzędu gracz nie zamknął, stojąc już na double (wynik do zamknięcia jedną lotką,
+ * np. 40, 8, 2), licząc tę kolejkę. Np. 40 → pudło, 8 → pudło, 8 → pudło = 3.
+ */
+export function failedFinishStreak(view: GameView, turn: TurnResult, out: Game["settings"]["outMode"]): number {
+  const mine = view.legs[turn.legIndex].turns.filter((x) => x.playerId === turn.playerId);
+  let i = mine.indexOf(turn);
+  if (i < 0) i = mine.length - 1;
+  let n = 0;
+  for (; i >= 0; i--) {
+    const t = mine[i];
+    if (t.isCheckout || !canFinish(t.scoreBefore, out, 1)) break;
+    n++;
+  }
+  return n;
+}
+
 /** Statystyki wszystkich graczy w jednym meczu. */
 export function gameStats(game: Game, view: GameView = replay(game)): Record<string, PlayerStats> {
   const out: Record<string, PlayerStats> = {};

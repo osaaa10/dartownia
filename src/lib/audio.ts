@@ -8,7 +8,7 @@ export const SOUND_EVENTS = [
   { id: "ton40", label: "140+" },
   { id: "180", label: "180" },
   { id: "bust", label: "Bust" },
-  { id: "stuck", label: "Znowu nie zamknął (na double)" },
+  { id: "stuck", label: "3. nieudana kolejka na double" },
   { id: "leg", label: "Wygrany leg" },
   { id: "match", label: "Wygrany mecz" },
 ] as const;

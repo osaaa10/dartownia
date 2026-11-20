@@ -15,9 +15,9 @@ import {
   Trophy,
   Undo2,
 } from "lucide-react";
-import { canFinish, displayLabel, finishHint, suggestCheckout } from "../engine/darts";
+import { displayLabel, finishHint, suggestCheckout } from "../engine/darts";
 import { addTurn, describeSettings, legsNeeded, rematch, renamePlayer, replay, setPlayerDoubles, undoTurn } from "../engine/game";
-import { gameStats, legAverage, type PlayerStats } from "../engine/stats";
+import { failedFinishStreak, gameStats, legAverage, type PlayerStats } from "../engine/stats";
 import type { Game, GameView, InputMode, TurnInput } from "../engine/types";
 import { sound } from "../lib/audio";
 import { speech } from "../lib/speech";
@@ -118,17 +118,9 @@ export function GameScreen({ store, game, onPause, onNewGame, onOpenSettings, no
       nextCheckout: nextHint?.kind === "checkout" ? nextHint.route : undefined,
     };
 
-    // Znowu nie zamknął: już tylko double do trafienia, a poprzednie podejście do zakończenia też nie wyszło.
+    // Znowu nie zamknął: zostało już tylko na double, a to co najmniej 3. nieudana kolejka z rzędu na zakończeniu.
     const out = game.settings.outMode;
-    const mine = nv.legs[t.legIndex].turns.filter((x) => x.playerId === t.playerId);
-    const prev = mine[mine.length - 2];
-    const stuck =
-      !t.isCheckout &&
-      out !== "single" &&
-      canFinish(t.scoreBefore, out, 1) &&
-      !!prev &&
-      !prev.isCheckout &&
-      canFinish(prev.scoreBefore, out, 3);
+    const stuck = out !== "single" && failedFinishStreak(nv, t, out) >= 3;
 
     if (stuck) {
       sound.play("stuck");
