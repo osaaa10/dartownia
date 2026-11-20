@@ -2,11 +2,11 @@
 // Strategia: sieć najpierw dla HTML (żeby dostać nową wersję), cache najpierw dla plików
 // z hashem w nazwie (assets/), a dla reszty (dźwięki, lektor, ikony) — z pamięci,
 // z odświeżeniem w tle, żeby podmienione pliki dźwięków trafiły do wszystkich.
-const CACHE = "kanciapa-dart-v7";
+const CACHE = "kanciapa-dart-v8";
 
 const SOUND_NAMES = ["dart", "turn", "ton", "ton40", "180", "bust", "leg", "match"];
 const NUMBERS = Array.from({ length: 181 }, (_, i) => String(i));
-const PHRASES = ["zostaje", "bust", "gameshot", "match"];
+const PHRASES = ["zostaje", "bust", "gameshot", "match", "teraz", "do-konca", "zakonczenie", "treble", "double", "bull"];
 // Domyślny podział stylów lektora — te nagrania zapisujemy od razu do pracy offline.
 // Inne style aplikacja dociąga w tle po wybraniu ich w ustawieniach.
 const DEFAULT_STYLE_FOR = (n) => (n < 50 ? "calm" : n < 100 ? "confident" : n < 150 ? "energetic" : n < 180 ? "enthusiastic" : "ecstatic");

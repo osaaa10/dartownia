@@ -15,7 +15,7 @@ import {
   Trophy,
   Undo2,
 } from "lucide-react";
-import { displayLabel, suggestCheckout } from "../engine/darts";
+import { displayLabel, finishHint, suggestCheckout } from "../engine/darts";
 import { addTurn, describeSettings, legsNeeded, rematch, renamePlayer, replay, setPlayerDoubles, undoTurn } from "../engine/game";
 import { gameStats, legAverage, type PlayerStats } from "../engine/stats";
 import type { Game, GameView, InputMode, TurnInput } from "../engine/types";
@@ -87,6 +87,11 @@ export function GameScreen({ store, game, onPause, onNewGame, onOpenSettings, no
     return () => document.removeEventListener("fullscreenchange", on);
   }, []);
 
+  const nickKey = game.players.map((p) => p.name).join("\n");
+  useEffect(() => {
+    speech.preloadNicks(nickKey.split("\n"));
+  }, [nickKey]);
+
   const player = game.players[view.currentPlayerIndex];
   const leg = view.legs[view.currentLegIndex];
   const score = leg.scores[player.id];
@@ -103,12 +108,14 @@ export function GameScreen({ store, game, onPause, onNewGame, onOpenSettings, no
     const who = game.players.find((p) => p.id === t.playerId)!;
     const nextP = next.players[nv.currentPlayerIndex];
     const nextScore = nv.legs[nv.currentLegIndex].scores[nextP.id];
+    const nextHint = !nv.finished && nextScore <= 170 ? finishHint(nextScore, game.settings.outMode, 3, nextP.doubles) : null;
     const base = {
       scored: t.scored,
       remaining: t.scoreAfter,
       player: who.name,
       nextName: nv.finished ? undefined : nextP.name,
       nextScore,
+      nextCheckout: nextHint?.kind === "checkout" ? nextHint.route : undefined,
     };
 
     if (t.isBust) {

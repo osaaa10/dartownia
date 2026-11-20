@@ -27,3 +27,14 @@ describe("niespodzianki", () => {
     expect(roll(3).filter(Boolean).length).toBe(1);
   });
 });
+
+import { nickSlug } from "./speech";
+
+describe("nicki lektora", () => {
+  it("zamienia nick na nazwę pliku", () => {
+    expect(nickSlug("Oleś")).toBe("oles");
+    expect(nickSlug("KMP")).toBe("kmp");
+    expect(nickSlug(" Podczar ")).toBe("podczar");
+    expect(nickSlug("Łukasz Żółć")).toBe("lukaszzolc");
+  });
+});

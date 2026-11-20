@@ -26,6 +26,10 @@ export interface AppSettings {
   usePack: boolean;
   /** Nagrany lektor mówi też, ile zostało (do 180). */
   callRemaining: boolean;
+  callToGo: boolean;
+  callCheckout: boolean;
+  callBust: boolean;
+  callWin: boolean;
   /** Styl nagranego lektora dla przedziałów wyników (r0, r50, r100, r150, r180). */
   voiceStyles: Record<RangeKey, VoiceStyle>;
   /** Tarcza: "double" = drugie stuknięcie potwierdza, "single" = od razu. */
@@ -63,6 +67,10 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   speechRate: 1.05,
   usePack: true,
   callRemaining: true,
+  callToGo: true,
+  callCheckout: true,
+  callBust: true,
+  callWin: true,
   voiceStyles: DEFAULT_VOICE_STYLES,
   boardConfirm: "double",
   inputMode: "board",

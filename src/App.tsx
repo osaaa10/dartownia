@@ -64,9 +64,13 @@ export default function App() {
     speech.usePack = s.usePack;
     speech.callRemaining = s.callRemaining;
     speech.announceNext = s.announceNext;
+    speech.callToGo = s.callToGo;
+    speech.callCheckout = s.callCheckout;
+    speech.callBust = s.callBust;
+    speech.callWin = s.callWin;
     speech.styles = { ...DEFAULT_VOICE_STYLES, ...s.voiceStyles };
     speech.preload();
-  }, [s.voiceStyles, s.sound, s.volume, s.surpriseChance, s.speech, s.speechVolume, s.speechRate, s.voiceURI, s.usePack, s.callRemaining, s.announceNext]);
+  }, [s.voiceStyles, s.sound, s.volume, s.surpriseChance, s.speech, s.speechVolume, s.speechRate, s.voiceURI, s.usePack, s.callRemaining, s.announceNext, s.callToGo, s.callCheckout, s.callBust, s.callWin]);
 
   // Własne dźwięki i nagrany lektor z repozytorium (public/sounds, public/voice).
   useEffect(() => {
