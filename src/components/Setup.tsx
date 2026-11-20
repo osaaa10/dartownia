@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { ArrowDown, ArrowRight, ArrowUp, Crown, Play, Plus, Shuffle, Target, Trash2, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowDown, ArrowRight, ArrowUp, Crown, Flag, Play, Plus, Shuffle, Target, Trash2, Volume2, X } from "lucide-react";
+import { nickSlug, similarNick, speech } from "../lib/speech";
 import { DoublesPicker } from "./DoublesPicker";
 import { PLAYER_COLORS, createGame, describeSettings, replay, uid } from "../engine/game";
 import { normName } from "../engine/stats";
@@ -15,8 +16,19 @@ function nextColor(used: Player[]): string {
 
 // ---------------------------------------------------------------- kontynuacja
 
-export function ContinueCard({ game, onContinue, onDiscard }: { game: Game; onContinue: () => void; onDiscard: () => void }) {
+export function ContinueCard({
+  game,
+  onContinue,
+  onDiscard,
+  onEndEarly,
+}: {
+  game: Game;
+  onContinue: () => void;
+  onDiscard: () => void;
+  onEndEarly: () => void;
+}) {
   const [confirm, setConfirm] = useState(false);
+  const [confirmEnd, setConfirmEnd] = useState(false);
   const view = replay(game);
   const legs = game.players.map((p) => view.legWins[p.id]).join(":");
   return (
@@ -27,18 +39,32 @@ export function ContinueCard({ game, onContinue, onDiscard }: { game: Game; onCo
         {describeSettings(game.settings)} · leg {view.currentLegIndex + 1} · legi {legs} ·{" "}
         {pl(game.turns.length, "kolejka", "kolejki", "kolejek")}
       </div>
-      <div className="mt-3 grid grid-cols-3 gap-2">
+      <div className="mt-3 grid grid-cols-2 gap-2">
         <Button variant="accent" className="col-span-2" onClick={onContinue}>
           <Play className="h-4 w-4" /> Kontynuuj
+        </Button>
+        <Button onClick={() => setConfirmEnd(true)} disabled={game.turns.length === 0}>
+          <Flag className="h-4 w-4" /> Zakończ i zapisz
         </Button>
         <Button onClick={() => setConfirm(true)}>
           <X className="h-4 w-4" /> Porzuć
         </Button>
       </div>
       <ConfirmDialog
+        open={confirmEnd}
+        title="Zakończyć mecz teraz?"
+        message="Mecz trafi do historii i statystyk bez zwycięzcy — razem z tym, kto na czym utknął. Dokończyć go można później z historii."
+        confirmLabel="Zakończ i zapisz"
+        onConfirm={() => {
+          setConfirmEnd(false);
+          onEndEarly();
+        }}
+        onCancel={() => setConfirmEnd(false)}
+      />
+      <ConfirmDialog
         open={confirm}
         title="Porzucić mecz?"
-        message="Niedokończony mecz zostanie usunięty i nie trafi do statystyk."
+        message="Niedokończony mecz zostanie usunięty i nie trafi do statystyk. Żeby zachować statystyki, wybierz „Zakończ i zapisz”."
         confirmLabel="Porzuć"
         danger
         onConfirm={() => {
@@ -66,7 +92,20 @@ export function PlayerSetup({
 }) {
   const saved = store.data.savedPlayers;
   const used = new Set(players.map((p) => normName(p.name)));
-  const available = saved.filter((s) => !used.has(normName(s.name)));
+  const [recorded, setRecorded] = useState<string[]>([]);
+  useEffect(() => {
+    void speech.recordedNicks().then(setRecorded);
+  }, []);
+  const recordedSlugs = new Set(recorded.map(nickSlug));
+  const hasVoice = (name: string) => recordedSlugs.has(nickSlug(name));
+  const savedSlugs = new Set(saved.map((s) => nickSlug(s.name)));
+  const available = [
+    ...saved.filter((s) => !used.has(normName(s.name))),
+    // Nagrane nicki, których jeszcze nikt nie użył.
+    ...recorded
+      .filter((n) => !savedSlugs.has(nickSlug(n)) && !players.some((p) => nickSlug(p.name) === nickSlug(n)))
+      .map((name) => ({ name, color: undefined as string | undefined, doubles: undefined as number[] | undefined })),
+  ];
   const names = players.map((p) => normName(p.name));
   const dupes = names.filter((n, i) => n && names.indexOf(n) !== i);
   const empty = players.some((p) => !p.name.trim());
@@ -136,6 +175,25 @@ export function PlayerSetup({
               aria-label={`Nazwa gracza ${i + 1}`}
               className="h-10 min-w-0 flex-1 rounded-md bg-transparent px-2 text-base outline-none focus:bg-surface2"
             />
+            {hasVoice(p.name) ? (
+              <span className="shrink-0 text-ok" title="Lektor ma nagrany ten nick">
+                <Volume2 className="h-4 w-4" />
+              </span>
+            ) : (
+              (() => {
+                const hint = similarNick(p.name, recorded);
+                return hint ? (
+                  <button
+                    type="button"
+                    onClick={() => update(p.id, hint)}
+                    className="shrink-0 rounded-md border border-ok/50 px-1.5 py-1 text-[11px] text-ok"
+                    title="Popraw na nagrany nick"
+                  >
+                    {hint}?
+                  </button>
+                ) : null;
+              })()
+            )}
             <button
               type="button"
               onClick={() => setPicking(p.id)}
@@ -182,16 +240,22 @@ export function PlayerSetup({
       {available.length > 0 && (
         <div className="rounded-xl border border-line bg-surface p-3">
           <SectionLabel>Szybko dodaj</SectionLabel>
+          {recorded.length > 0 && (
+            <p className="-mt-1 mb-2 text-[11px] text-muted">
+              <Volume2 className="mr-0.5 inline h-3 w-3 text-ok" /> — lektor czyta ten nick. Wybieraj stąd, żeby uniknąć literówek.
+            </p>
+          )}
           <div className="flex flex-wrap gap-1.5">
-            {available.slice(0, 16).map((s) => (
+            {available.slice(0, 24).map((s) => (
               <button
                 key={s.name}
                 onClick={() => add(s.name, s.color, s.doubles)}
                 disabled={players.length >= MAX_PLAYERS && !players.some((p) => !p.name.trim())}
                 className="flex items-center gap-1.5 rounded-full border border-line bg-surface2 px-3 py-1 text-sm"
               >
-                <span className="h-2 w-2 rounded-full" style={{ background: `hsl(${s.color})` }} />
+                {s.color && <span className="h-2 w-2 rounded-full" style={{ background: `hsl(${s.color})` }} />}
                 {s.name}
+                {hasVoice(s.name) && <Volume2 className="h-3 w-3 text-ok" />}
               </button>
             ))}
           </div>

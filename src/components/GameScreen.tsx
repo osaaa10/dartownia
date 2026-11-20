@@ -433,10 +433,14 @@ export function StatGrid({ s }: { s: PlayerStats }) {
     ["Pierwsze 9", s.first9Darts ? fmtNum(s.first9Avg) : "—"],
     ["Najw. kolejka", s.highestTurn || "—"],
     ["Najw. checkout", s.highestCheckout || "—"],
+    ["60+", s.c60],
     ["100+", s.c100],
     ["140+", s.c140],
     ["180", s.c180],
     ["Checkout %", s.checkoutPct === null ? "—" : `${Math.round(s.checkoutPct)}%`],
+    ["Double %", s.doublePct === null ? "—" : `${Math.round(s.doublePct)}%`],
+    ["Busty", s.busts],
+    ["Lotek na leg", s.dartsPerLeg ? fmtNum(s.dartsPerLeg, 1) : "—"],
   ];
   return (
     <div className="grid grid-cols-4 gap-1.5">

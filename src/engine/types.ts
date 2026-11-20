@@ -54,6 +54,8 @@ export interface Game {
   turns: TurnInput[];
   /** Ustawiane, gdy mecz się zakończył (czas ostatniej kolejki). */
   finishedAt?: number;
+  /** Mecz zakończony ręcznie przed czasem (np. utknęliście na double) — trafia do statystyk bez zwycięzcy. */
+  endedEarly?: boolean;
 }
 
 /** Wynik odtworzenia jednej kolejki. */

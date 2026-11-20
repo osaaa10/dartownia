@@ -2,7 +2,7 @@
 // Strategia: sieć najpierw dla HTML (żeby dostać nową wersję), cache najpierw dla plików
 // z hashem w nazwie (assets/), a dla reszty (dźwięki, lektor, ikony) — z pamięci,
 // z odświeżeniem w tle, żeby podmienione pliki dźwięków trafiły do wszystkich.
-const CACHE = "kanciapa-dart-v8";
+const CACHE = "kanciapa-dart-v9"
 
 const SOUND_NAMES = ["dart", "turn", "ton", "ton40", "180", "bust", "leg", "match"];
 const NUMBERS = Array.from({ length: 181 }, (_, i) => String(i));
@@ -59,6 +59,18 @@ async function precache() {
       for (let v = 2; v <= 5; v++) if (!(await cacheIfExists(c, `./voice/${p}-${v}.mp3`))) break;
     }),
   );
+  // Nagrane nicki graczy.
+  try {
+    const res = await fetch("./voice/names/index.json", { cache: "no-store" });
+    if (res.ok) {
+      const names = await res.clone().json();
+      await c.put("./voice/names/index.json", res);
+      const slug = (n) => n.replace(/[łŁ]/g, "l").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      await Promise.all(names.map((n) => cacheIfExists(c, `./voice/names/${slug(n)}.mp3`)));
+    }
+  } catch {
+    /* brak listy nicków */
+  }
   // Liczby w domyślnych stylach (calm/0.mp3 …) oraz spokojne do „zostaje …”.
   const nums = [...new Set([...NUMBERS.map((n) => `${DEFAULT_STYLE_FOR(Number(n))}/${n}`), ...NUMBERS.map((n) => `calm/${n}`)])];
   if (await cacheIfExists(c, "./voice/calm/0.mp3")) {

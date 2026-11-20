@@ -9,7 +9,7 @@ import {
   finishHint,
   suggestCheckout,
 } from "./darts";
-import { addTurn, createGame, evaluateTurn, legsNeeded, rematch, replaceLastTurn, replay, undoTurn } from "./game";
+import { addTurn, createGame, endEarly, evaluateTurn, legsNeeded, rematch, replaceLastTurn, replay, resumeEarly, undoTurn } from "./game";
 import { careerStats, gameStats } from "./stats";
 import type { Game, MatchSettings, Player, TurnInput } from "./types";
 
@@ -213,5 +213,44 @@ describe("ulubione double", () => {
   });
   it("single out nie podpowiada ustawiania", () => {
     expect(finishHint(250, "single", 3)).toBeNull();
+  });
+});
+
+describe("statystyki zakończeń", () => {
+  it("liczy lotki na double i trafienia", () => {
+    let g = createGame([P("a"), P("b")], S({ startingScore: 301 }));
+    // a: 301 → 40; b gra w tle
+    g = play(g, t(180), t(0), t(81), t(0));
+    // a na 40: D20 pudło (S20 → 20), potem D10 pudło (S10 → 10), D5 trafione
+    g = play(g, d("S20", "S10", "D5"));
+    const s = gameStats(g).a;
+    expect(s.dartsAtDouble).toBe(3);
+    expect(s.doubleHits).toBe(1);
+    expect(Math.round(s.doublePct!)).toBe(33);
+    expect(s.finishes).toEqual({ D5: 1 });
+    expect(s.legsWon).toBe(1);
+    expect(s.dartsPerLeg).toBe(9);
+  });
+
+  it("mecz przerwany na double trafia do statystyk bez zwycięzcy", () => {
+    let g = createGame([P("a"), P("b")], S({ startingScore: 301 }));
+    g = play(g, t(180), t(100), t(119), t(100), d("S1", "S1", "MISS"), t(60));
+    // a ma 2 (D1), b ma 41
+    const empty = createGame([P("a")], S());
+    expect(endEarly(empty)).toBe(empty); // pusty mecz się nie kończy
+    const e = endEarly(g, 123);
+    expect(e.finishedAt).toBe(123);
+    expect(replay(e).winnerId).toBeNull();
+    const s = gameStats(e);
+    expect(s.a.legsUnfinished).toBe(1);
+    expect(s.a.stuckOnFinish).toBe(1);
+    expect(s.a.stuckScores).toEqual({ 2: 1 });
+    expect(s.a.dartsAtDouble).toBe(1); // na 2 (D1) rzucił S1 → bust, dalsze lotki się nie liczą
+    const c = careerStats([e], { startingScore: "all", outMode: "all" });
+    const a = c.find((x) => x.key === "a")!;
+    expect(a.matches).toBe(1);
+    expect(a.unfinished).toBe(1);
+    expect(a.wins).toBe(0);
+    expect(resumeEarly(e).finishedAt).toBeUndefined();
   });
 });

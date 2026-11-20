@@ -60,6 +60,34 @@ export function nickSlug(name: string): string {
     .replace(/[^a-z0-9]/g, "");
 }
 
+/** Odległość edycyjna (literówki): ile liter trzeba zmienić, dodać lub usunąć. */
+function editDistance(a: string, b: string): number {
+  const dp = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = dp[0];
+    dp[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const tmp = dp[j];
+      dp[j] = Math.min(dp[j] + 1, dp[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = tmp;
+    }
+  }
+  return dp[b.length];
+}
+
+/** Nagrany nick podobny do wpisanego (literówka), np. „Pitke” → „Pitek”. */
+export function similarNick(name: string, recorded: string[]): string | null {
+  const slug = nickSlug(name);
+  if (slug.length < 2 || recorded.some((r) => nickSlug(r) === slug)) return null;
+  const max = slug.length <= 3 ? 1 : 2;
+  let best: { n: string; d: number } | null = null;
+  for (const r of recorded) {
+    const d = editDistance(slug, nickSlug(r));
+    if (d <= max && (!best || d < best.d)) best = { n: r, d };
+  }
+  return best?.n ?? null;
+}
+
 export function rangeOf(n: number) {
   return VOICE_RANGES.find((r) => n >= r.from && n <= r.to) ?? VOICE_RANGES[0];
 }
@@ -182,6 +210,17 @@ class Speech {
     if (n > 1 && v === this.lastPhrase.get(p)) v = (v % n) + 1;
     this.lastPhrase.set(p, v);
     return v === 1 ? p : `${p}-${v}`;
+  }
+
+  private nickList: Promise<string[]> | null = null;
+
+  /** Lista nagranych nicków (public/voice/names/index.json), do wybierania bez literówek. */
+  recordedNicks(): Promise<string[]> {
+    this.nickList ??= fetch("./voice/names/index.json")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((l: unknown) => (Array.isArray(l) ? l.filter((x): x is string => typeof x === "string") : []))
+      .catch(() => []);
+    return this.nickList;
   }
 
   /** Ścieżka nagranego nicku gracza albo null, gdy go nie ma. */
