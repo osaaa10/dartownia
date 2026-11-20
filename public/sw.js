@@ -2,7 +2,7 @@
 // Strategia: sieć najpierw dla HTML (żeby dostać nową wersję), cache najpierw dla plików
 // z hashem w nazwie (assets/), a dla reszty (dźwięki, lektor, ikony) — z pamięci,
 // z odświeżeniem w tle, żeby podmienione pliki dźwięków trafiły do wszystkich.
-const CACHE = "kanciapa-dart-v9"
+const CACHE = "kanciapa-dart-v10"
 
 const SOUND_NAMES = ["dart", "turn", "ton", "ton40", "180", "bust", "leg", "match"];
 const NUMBERS = Array.from({ length: 181 }, (_, i) => String(i));
@@ -59,6 +59,17 @@ async function precache() {
       for (let v = 2; v <= 5; v++) if (!(await cacheIfExists(c, `./voice/${p}-${v}.mp3`))) break;
     }),
   );
+  // Całe nazwy lotek (voice/darts/<styl>/T20.mp3, voice/darts/single/20.mp3).
+  for (const st of ["potrojne", "tripel", "tede"]) {
+    if (!(await cacheIfExists(c, `./voice/darts/${st}/T20.mp3`))) continue;
+    const list = [];
+    for (let n = 1; n <= 20; n++) list.push(`T${n}`, `D${n}`);
+    await Promise.all(list.map((l) => cacheIfExists(c, `./voice/darts/${st}/${l}.mp3`)));
+  }
+  if (await cacheIfExists(c, "./voice/darts/single/20.mp3")) {
+    const list = [...Array.from({ length: 20 }, (_, i) => i + 1), 25];
+    await Promise.all(list.map((n) => cacheIfExists(c, `./voice/darts/single/${n}.mp3`)));
+  }
   // Nagrane nicki graczy.
   try {
     const res = await fetch("./voice/names/index.json", { cache: "no-store" });

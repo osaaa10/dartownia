@@ -73,7 +73,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   callCheckout: true,
   callBust: true,
   callWin: true,
-  dartNaming: "potrojne",
+  dartNaming: "tede",
   bullName: "bull",
   voiceStyles: DEFAULT_VOICE_STYLES,
   boardConfirm: "double",
