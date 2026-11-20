@@ -27,6 +27,8 @@ Zwroty:
   te.mp3, de.mp3                 albo „te 20”, „de 5”
   bull.mp3, bullseye.mp3         bull (50)
   names/<nick>.mp3               nicki graczy
+  darts/tede/T1.mp3 … D20.mp3    całe lotki jednym tonem („te dziewiętnaście”, „de szesnaście”)
+  darts/single/1.mp3 … 25.mp3    pojedyncze pola w zakończeniu
 ```
 
 Każdy zwrot może mieć warianty (`bust-2.mp3` … `bust-5.mp3`) — aplikacja je losuje.
