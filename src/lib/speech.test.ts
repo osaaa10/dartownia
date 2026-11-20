@@ -24,7 +24,7 @@ describe("zapowiedź lektora", () => {
     // 241 > 180, więc bez „zostaje”.
     expect(played()).toEqual([
       "confident/60", "teraz", "names/pitek", "do-konca", "calm/130",
-      "zakonczenie", "treble", "calm/20", "treble", "calm/20", "double", "calm/5",
+      "zakonczenie", "potrojne", "calm/20", "potrojne", "calm/20", "podwojne", "calm/5",
     ]);
   });
 
@@ -37,8 +37,12 @@ describe("zapowiedź lektora", () => {
     speech.callBust = true;
     speech.callCheckout = true;
     await speech.announce({ kind: "turn", scored: 26, remaining: 50, player: "Osa", nextName: "KMP", nextScore: 40, nextCheckout: ["D20"] });
-    expect(played()).toEqual(["calm/26", "zostaje", "calm/50", "teraz", "names/kmp", "do-konca", "calm/40", "zakonczenie", "double", "calm/20"]);
+    expect(played()).toEqual(["calm/26", "zostaje", "calm/50", "teraz", "names/kmp", "do-konca", "calm/40", "zakonczenie", "podwojne", "calm/20"]);
     await speech.announce({ kind: "turn", scored: 3, remaining: 50, player: "Osa", nextName: "KMP", nextScore: 50, nextCheckout: ["BULL"] });
     expect(played().slice(-2)).toEqual(["zakonczenie", "bull"]);
+    speech.dartNaming = "tede";
+    speech.bullName = "bullseye";
+    await speech.announce({ kind: "turn", scored: 3, remaining: 50, player: "Osa", nextName: "KMP", nextScore: 100, nextCheckout: ["T20", "BULL"] });
+    expect(played().slice(-4)).toEqual(["zakonczenie", "te", "calm/20", "bullseye"]);
   });
 });

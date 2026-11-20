@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, Play, Trash2, Trophy, Upload, Volume2 } from "lucide-react";
 import { SOUND_EVENTS, sound, type SoundEvent } from "../lib/audio";
-import { DEFAULT_VOICE_STYLES, VOICE_RANGES, VOICE_STYLES, speech, type RangeKey, type VoiceStyle } from "../lib/speech";
+import { DART_NAMINGS, DEFAULT_VOICE_STYLES, VOICE_RANGES, VOICE_STYLES, speech, type BullName, type DartNaming, type RangeKey, type VoiceStyle } from "../lib/speech";
 import { describeSettings, replay } from "../engine/game";
 import { careerStats, gameStats, type CareerStats, type StatsFilter } from "../engine/stats";
 import type { Game } from "../engine/types";
@@ -657,6 +657,34 @@ function AudioSettings({ store, open }: { store: AppStore; open: boolean }) {
           <Row label="Podpowiedź zakończenia" desc="„Zakończenie: T20, T20, D5” — z uwzględnieniem ulubionych double gracza">
             <Switch checked={s.callCheckout} onChange={(v) => set((x) => ({ ...x, callCheckout: v }))} label="Podpowiedź zakończenia" />
           </Row>
+          {s.callCheckout && (
+            <div className="border-b border-line/60 py-3">
+              <div className="mb-1.5 text-sm font-medium">Jak czytać lotki</div>
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  value={s.dartNaming}
+                  onChange={(e) => set((x) => ({ ...x, dartNaming: e.target.value as DartNaming }))}
+                  className="h-10 rounded-lg border border-line bg-surface px-2 text-sm"
+                  aria-label="Jak czytać lotki"
+                >
+                  {DART_NAMINGS.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      T20 = {d.label.split(" / ")[0]} 20
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={s.bullName}
+                  onChange={(e) => set((x) => ({ ...x, bullName: e.target.value as BullName }))}
+                  className="h-10 rounded-lg border border-line bg-surface px-2 text-sm"
+                  aria-label="Jak czytać bulla"
+                >
+                  <option value="bull">50 = bull</option>
+                  <option value="bullseye">50 = bullseye</option>
+                </select>
+              </div>
+            </div>
+          )}
           <div className="py-3">
             <Button size="sm" onClick={test}>
               <Volume2 className="h-4 w-4" /> Posłuchaj lektora

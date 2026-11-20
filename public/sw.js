@@ -6,7 +6,7 @@ const CACHE = "kanciapa-dart-v8";
 
 const SOUND_NAMES = ["dart", "turn", "ton", "ton40", "180", "bust", "leg", "match"];
 const NUMBERS = Array.from({ length: 181 }, (_, i) => String(i));
-const PHRASES = ["zostaje", "bust", "gameshot", "match", "teraz", "do-konca", "zakonczenie", "treble", "double", "bull"];
+const PHRASES = ["zostaje", "bust", "gameshot", "match", "teraz", "do-konca", "zakonczenie", "potrojne", "podwojne", "tripel", "double", "te", "de", "bull", "bullseye"];
 // Domyślny podział stylów lektora — te nagrania zapisujemy od razu do pracy offline.
 // Inne style aplikacja dociąga w tle po wybraniu ich w ustawieniach.
 const DEFAULT_STYLE_FOR = (n) => (n < 50 ? "calm" : n < 100 ? "confident" : n < 150 ? "energetic" : n < 180 ? "enthusiastic" : "ecstatic");

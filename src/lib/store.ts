@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { DEFAULT_SETTINGS } from "../engine/game";
 import { normName } from "../engine/stats";
 import type { Game, InputMode, MatchSettings, Player } from "../engine/types";
-import { DEFAULT_VOICE_STYLES, type RangeKey, type VoiceStyle } from "./speech";
+import { DEFAULT_VOICE_STYLES, type BullName, type DartNaming, type RangeKey, type VoiceStyle } from "./speech";
 
 export interface AppSettings {
   theme: "dark" | "light";
@@ -30,6 +30,8 @@ export interface AppSettings {
   callCheckout: boolean;
   callBust: boolean;
   callWin: boolean;
+  dartNaming: DartNaming;
+  bullName: BullName;
   /** Styl nagranego lektora dla przedziałów wyników (r0, r50, r100, r150, r180). */
   voiceStyles: Record<RangeKey, VoiceStyle>;
   /** Tarcza: "double" = drugie stuknięcie potwierdza, "single" = od razu. */
@@ -71,6 +73,8 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   callCheckout: true,
   callBust: true,
   callWin: true,
+  dartNaming: "potrojne",
+  bullName: "bull",
   voiceStyles: DEFAULT_VOICE_STYLES,
   boardConfirm: "double",
   inputMode: "board",

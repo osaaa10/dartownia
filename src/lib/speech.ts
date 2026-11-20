@@ -34,7 +34,19 @@ export const DEFAULT_VOICE_STYLES: Record<RangeKey, VoiceStyle> = {
   r180: "ecstatic",
 };
 
-const PHRASES = ["zostaje", "bust", "gameshot", "match", "teraz", "do-konca", "zakonczenie", "treble", "double", "bull"] as const;
+const PHRASES = [
+  "zostaje", "bust", "gameshot", "match", "teraz", "do-konca", "zakonczenie",
+  "potrojne", "podwojne", "tripel", "double", "te", "de", "bull", "bullseye",
+] as const;
+
+/** Jak lektor czyta lotki w podpowiedzi zakończenia. */
+export const DART_NAMINGS = [
+  { id: "potrojne", label: "potrójne / podwójne", treble: "potrojne", double: "podwojne", tts: ["potrójne", "podwójne"] },
+  { id: "tripel", label: "tripel / double", treble: "tripel", double: "double", tts: ["tripel", "double"] },
+  { id: "tede", label: "te / de", treble: "te", double: "de", tts: ["te", "de"] },
+] as const;
+export type DartNaming = (typeof DART_NAMINGS)[number]["id"];
+export type BullName = "bull" | "bullseye";
 type Phrase = (typeof PHRASES)[number];
 const MAX_PHRASE_VARIANTS = 5;
 
@@ -64,10 +76,11 @@ export interface Announcement {
 }
 
 /** Lotka słownie dla głosu telefonu: „T20” → „potrójne 20”. */
-function dartWords(label: string): string {
-  if (label === "BULL") return "bull";
-  if (label.startsWith("T")) return `potrójne ${label.slice(1)}`;
-  if (label.startsWith("D")) return `podwójne ${label.slice(1)}`;
+function dartWords(label: string, naming: DartNaming, bull: BullName): string {
+  const n = DART_NAMINGS.find((d) => d.id === naming) ?? DART_NAMINGS[0];
+  if (label === "BULL") return bull;
+  if (label.startsWith("T")) return `${n.tts[0]} ${label.slice(1)}`;
+  if (label.startsWith("D")) return `${n.tts[1]} ${label.slice(1)}`;
   return label.startsWith("S") ? label.slice(1) : label;
 }
 
@@ -83,6 +96,8 @@ class Speech {
   callToGo = true;
   /** Sugerowane zakończenie dla następnego gracza. */
   callCheckout = true;
+  dartNaming: DartNaming = "potrojne";
+  bullName: BullName = "bull";
   /** „Bust!” */
   callBust = true;
   /** „Game shot” / „Game shot i mecz”. */
@@ -267,10 +282,11 @@ class Speech {
   /** Nagrania jednej lotki: „T20” → [treble, 20]; null, gdy czegoś brakuje. */
   private dartPaths(label: string): string[] | null {
     if (label === "BULL") {
-      const b = this.phrase("bull");
+      const b = this.phrase(this.bullName) ?? this.phrase("bull");
       return b ? [b] : null;
     }
-    const prefix = label.startsWith("T") ? this.phrase("treble") : label.startsWith("D") ? this.phrase("double") : "";
+    const nm = DART_NAMINGS.find((d) => d.id === this.dartNaming) ?? DART_NAMINGS[0];
+    const prefix = label.startsWith("T") ? this.phrase(nm.treble) : label.startsWith("D") ? this.phrase(nm.double) : "";
     const num = Number(label.replace(/^[SDT]/, ""));
     const n = Number.isFinite(num) && num > 0 ? this.pathFor(num, "remaining") : null;
     if (prefix === null || !n) return null;
@@ -349,7 +365,7 @@ class Speech {
       if (this.announceNext) parts.push(`Teraz ${a.nextName}.`);
       const left = a.nextScore ?? 0;
       if (this.callToGo && left > 0) parts.push(`Do końca ${left}.`);
-      if (this.callCheckout && a.nextCheckout?.length) parts.push(`Zakończenie: ${a.nextCheckout.map(dartWords).join(", ")}.`);
+      if (this.callCheckout && a.nextCheckout?.length) parts.push(`Zakończenie: ${a.nextCheckout.map((d) => dartWords(d, this.dartNaming, this.bullName)).join(", ")}.`);
     }
     if (parts.length) return this.say(parts.join(" "), force);
   }
