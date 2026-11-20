@@ -14,6 +14,25 @@ Nie musisz mieć wszystkich: jeśli jakiegoś pliku brakuje, gra domyślny sygna
 | `leg.mp3`    | wygrany leg                                   |
 | `match.mp3`  | wygrany mecz                                  |
 
+## Warianty: kilka wersji tego samego dźwięku
+
+Do każdego dźwięku możesz dodać do 4 dodatkowych wersji, numerując je od 2:
+
+```
+180.mp3   180-2.mp3   180-3.mp3   180-4.mp3   180-5.mp3
+```
+
+Za każdym razem aplikacja wylosuje jedną z nich (i nie zagra tej samej dwa razy z rzędu).
+Numeracja musi być ciągła: jeśli jest `180-3.mp3`, a brakuje `180-2.mp3`, trójka zostanie pominięta.
+
+## Niespodzianki
+
+Pliki `surprise.mp3`, `surprise-2.mp3` … `surprise-10.mp3` to dźwięki-niespodzianki
+(np. śmiech, trąbka, „ooo!”). Gdy w aplikacji włączysz **Ustawienia → Dźwięki → Niespodzianka**
+(np. „1 z 5”), co piątą zwykłą kolejkę zamiast lektora (albo zaraz po nim) zagra jedna z nich, losowo.
+Bez tych plików grają wbudowane: boing, smutna trąbka i laser.
+180, busty i wygrane legi zawsze idą normalnie.
+
 Wskazówki:
 
 - Krótko: dźwięk gra razem z lektorem. Najlepiej 0,1–2 s (mecz może być dłuższy).

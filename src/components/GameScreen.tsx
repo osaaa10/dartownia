@@ -128,7 +128,21 @@ export function GameScreen({ store, game, onPause, onNewGame, onOpenSettings, no
         sound.play("180");
         setFlash("max");
         notify(`180! ${who.name}`, "good");
-      } else if (t.scored >= 140) sound.play("ton40");
+        void speech.announce({ ...base, kind: "turn" });
+        return;
+      }
+      // Niespodzianka: co któraś zwykła kolejka (180 i końcówki zawsze normalnie).
+      if (sound.rollSurprise()) {
+        if (settings.surpriseMode === "instead") {
+          speech.stop();
+          void sound.playSurprise();
+        } else {
+          sound.play("turn");
+          void speech.announce({ ...base, kind: "turn" }).then(() => sound.playSurprise());
+        }
+        return;
+      }
+      if (t.scored >= 140) sound.play("ton40");
       else if (t.scored >= 100) sound.play("ton");
       else sound.play("turn");
       void speech.announce({ ...base, kind: "turn" });

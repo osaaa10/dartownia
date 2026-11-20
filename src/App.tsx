@@ -4,7 +4,7 @@ import { uid } from "./engine/game";
 import { PLAYER_COLORS } from "./engine/game";
 import type { MatchSettings, Player } from "./engine/types";
 import { sound } from "./lib/audio";
-import { speech } from "./lib/speech";
+import { DEFAULT_VOICE_STYLES, speech } from "./lib/speech";
 import { useAppData } from "./lib/store";
 import { GameScreen } from "./components/GameScreen";
 import { HistoryPanel, SettingsPanel, StatsPanel } from "./components/Panels";
@@ -56,6 +56,7 @@ export default function App() {
   useEffect(() => {
     sound.enabled = s.sound;
     sound.volume = s.volume;
+    sound.surpriseChance = s.surpriseChance;
     speech.enabled = s.speech;
     speech.volume = s.speechVolume;
     speech.rate = s.speechRate;
@@ -63,7 +64,9 @@ export default function App() {
     speech.usePack = s.usePack;
     speech.callRemaining = s.callRemaining;
     speech.announceNext = s.announceNext;
-  }, [s.sound, s.volume, s.speech, s.speechVolume, s.speechRate, s.voiceURI, s.usePack, s.callRemaining, s.announceNext]);
+    speech.styles = { ...DEFAULT_VOICE_STYLES, ...s.voiceStyles };
+    speech.preload();
+  }, [s.voiceStyles, s.sound, s.volume, s.surpriseChance, s.speech, s.speechVolume, s.speechRate, s.voiceURI, s.usePack, s.callRemaining, s.announceNext]);
 
   // Własne dźwięki i nagrany lektor z repozytorium (public/sounds, public/voice).
   useEffect(() => {

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, Play, Trash2, Trophy, Upload, Volume2 } from "lucide-react";
 import { SOUND_EVENTS, sound, type SoundEvent } from "../lib/audio";
-import { speech } from "../lib/speech";
+import { DEFAULT_VOICE_STYLES, VOICE_RANGES, VOICE_STYLES, speech, type RangeKey, type VoiceStyle } from "../lib/speech";
 import { describeSettings, replay } from "../engine/game";
 import { careerStats, gameStats, type CareerStats, type StatsFilter } from "../engine/stats";
 import type { Game } from "../engine/types";
@@ -477,13 +477,23 @@ function AudioSettings({ store, open }: { store: AppStore; open: boolean }) {
   const s = store.data.settings;
   const set = store.setSettings;
   const [found, setFound] = useState<Partial<Record<SoundEvent, boolean>>>({});
+  const [variants, setVariants] = useState<Partial<Record<SoundEvent, number>>>({});
+  const [surprises, setSurprises] = useState(0);
   const [pack, setPack] = useState(false);
+  const [avail, setAvail] = useState<Record<RangeKey, VoiceStyle[]>>(speech.available);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
   useEffect(() => {
     if (!open) return;
-    void sound.detect().then(() => setFound({ ...sound.found }));
-    void speech.detectPack().then(setPack);
+    void sound.detect().then(() => {
+      setFound({ ...sound.found });
+      setVariants({ ...sound.variants });
+      setSurprises(sound.surprises);
+    });
+    void speech.detectPack().then((ok) => {
+      setPack(ok);
+      setAvail({ ...speech.available });
+    });
     const load = () => setVoices(speech.voices());
     load();
     if (speech.supported) window.speechSynthesis.addEventListener?.("voiceschanged", load);
@@ -507,6 +517,46 @@ function AudioSettings({ store, open }: { store: AppStore; open: boolean }) {
           <Row label="Głośność">
             <Slider value={Math.round(s.volume * 100)} onChange={(v) => set((x) => ({ ...x, volume: v / 100 }))} label="Głośność dźwięków" />
           </Row>
+          <div className="border-b border-line/60 py-3">
+            <div className="mb-1 text-sm font-medium">Niespodzianka</div>
+            <div className="mb-2 text-xs text-muted">
+              Co któraś zwykła kolejka zamiast lektora zagra coś innego. Która — losowo. 180, busty i końcówki zawsze
+              normalnie.
+            </div>
+            <Segmented
+              value={s.surpriseChance}
+              onChange={(v) => set((x) => ({ ...x, surpriseChance: v }))}
+              cols={4}
+              options={[
+                { value: 0, label: "Wyłącz." },
+                { value: 1 / 3, label: "1 z 3" },
+                { value: 0.2, label: "1 z 5" },
+                { value: 0.1, label: "1 z 10" },
+              ]}
+            />
+            {s.surpriseChance > 0 && (
+              <div className="mt-2">
+                <Segmented
+                  value={s.surpriseMode}
+                  onChange={(v) => set((x) => ({ ...x, surpriseMode: v }))}
+                  options={[
+                    { value: "instead", label: "Zamiast wyniku", desc: "Lektor milczy" },
+                    { value: "after", label: "Po wyniku", desc: "Najpierw wynik" },
+                  ]}
+                />
+              </div>
+            )}
+            <div className="mt-2 flex items-center gap-2">
+              <Button size="sm" onClick={() => void sound.playSurprise(true)}>
+                <Play className="h-3.5 w-3.5" /> Posłuchaj
+              </Button>
+              <span className="text-[11px] text-muted">
+                {surprises > 0
+                  ? `Niespodzianki z repozytorium: ${surprises}`
+                  : "Wbudowane (boing, trąbka, laser). Własne: public/sounds/surprise.mp3"}
+              </span>
+            </div>
+          </div>
           <div className="py-3">
             <div className="mb-2 text-xs text-muted">
               {customCount > 0
@@ -525,6 +575,7 @@ function AudioSettings({ store, open }: { store: AppStore; open: boolean }) {
                   title={found[e.id] ? "Własny plik" : "Domyślny sygnał"}
                 >
                   <Play className="h-3 w-3" /> {e.label}
+                  {(variants[e.id] ?? 0) > 1 && <span className="font-mono text-[10px]">×{variants[e.id]}</span>}
                 </button>
               ))}
             </div>
@@ -546,9 +597,10 @@ function AudioSettings({ store, open }: { store: AppStore; open: boolean }) {
               <Row label="Nagrany lektor" desc="Znaleziony w repozytorium — wszyscy słyszą ten sam głos">
                 <Switch checked={s.usePack} onChange={(v) => set((x) => ({ ...x, usePack: v }))} label="Nagrany lektor" />
               </Row>
-              <Row label="Mów, ile zostało" desc="„Sto… zostaje sto dwadzieścia jeden” (do 180)">
+              <Row label="Mów, ile zostało" desc="„Sto… zostaje sto dwadzieścia jeden” (do 180), zawsze spokojnym głosem">
                 <Switch checked={s.callRemaining} onChange={(v) => set((x) => ({ ...x, callRemaining: v }))} label="Mów, ile zostało" />
               </Row>
+              {s.usePack && <VoiceStylePicker store={store} available={avail} />}
             </>
           ) : (
             <p className="border-b border-line/60 py-3 text-xs text-muted">
@@ -597,5 +649,72 @@ function AudioSettings({ store, open }: { store: AppStore; open: boolean }) {
         </div>
       </div>
     </>
+  );
+}
+
+// ---------------------------------------------------------------- styl nagranego lektora
+
+const SAMPLE: Record<RangeKey, number> = { r0: 26, r50: 60, r100: 121, r150: 160, r180: 180 };
+
+function VoiceStylePicker({ store, available }: { store: AppStore; available: Record<RangeKey, VoiceStyle[]> }) {
+  const styles = { ...DEFAULT_VOICE_STYLES, ...store.data.settings.voiceStyles };
+  const setStyles = (next: Record<RangeKey, VoiceStyle>) => store.setSettings((x) => ({ ...x, voiceStyles: next }));
+  const everywhere = VOICE_STYLES.filter((st) => VOICE_RANGES.every((r) => available[r.key].includes(st.id)));
+  const isDefault = VOICE_RANGES.every((r) => styles[r.key] === DEFAULT_VOICE_STYLES[r.key]);
+  const listen = (n: number) =>
+    void speech.announce({ kind: "turn", scored: n, remaining: 0, player: "" }, true);
+
+  return (
+    <div className="border-b border-line/60 py-3">
+      <div className="mb-1 text-sm font-medium">Styl lektora</div>
+      <div className="mb-2 text-xs text-muted">Jak lektor ma mówić przy danym wyniku. Każdy ustawia to u siebie.</div>
+      <div className="mb-2 flex flex-wrap gap-1.5">
+        <button
+          onClick={() => setStyles({ ...DEFAULT_VOICE_STYLES })}
+          className={cn("rounded-full border px-2.5 py-1 text-xs", isDefault ? "border-primary bg-primary/15" : "border-line bg-surface")}
+        >
+          Domyślny podział
+        </button>
+        {everywhere.map((st) => {
+          const active = VOICE_RANGES.every((r) => styles[r.key] === st.id);
+          return (
+            <button
+              key={st.id}
+              onClick={() => setStyles(Object.fromEntries(VOICE_RANGES.map((r) => [r.key, st.id])) as Record<RangeKey, VoiceStyle>)}
+              className={cn("rounded-full border px-2.5 py-1 text-xs", active ? "border-primary bg-primary/15" : "border-line bg-surface")}
+            >
+              Wszystko: {st.label.toLowerCase()}
+            </button>
+          );
+        })}
+      </div>
+      <div className="space-y-1.5">
+        {VOICE_RANGES.map((r) => (
+          <div key={r.key} className="flex items-center gap-2">
+            <span className="w-16 shrink-0 font-mono text-xs text-muted">{r.label}</span>
+            <select
+              value={styles[r.key]}
+              onChange={(e) => setStyles({ ...styles, [r.key]: e.target.value as VoiceStyle })}
+              className="h-9 min-w-0 flex-1 rounded-lg border border-line bg-surface px-2 text-sm"
+              aria-label={`Styl lektora dla wyników ${r.label}`}
+            >
+              {VOICE_STYLES.filter((st) => available[r.key].includes(st.id) || st.id === styles[r.key]).map((st) => (
+                <option key={st.id} value={st.id} disabled={!available[r.key].includes(st.id)}>
+                  {st.label}
+                  {!available[r.key].includes(st.id) ? " (brak nagrań)" : ""}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => listen(SAMPLE[r.key])}
+              className="flex h-9 shrink-0 items-center gap-1 rounded-lg border border-line bg-surface px-2 text-xs"
+              aria-label={`Posłuchaj ${SAMPLE[r.key]}`}
+            >
+              <Play className="h-3 w-3" /> {SAMPLE[r.key]}
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

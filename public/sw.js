@@ -2,10 +2,14 @@
 // Strategia: sieć najpierw dla HTML (żeby dostać nową wersję), cache najpierw dla plików
 // z hashem w nazwie (assets/), a dla reszty (dźwięki, lektor, ikony) — z pamięci,
 // z odświeżeniem w tle, żeby podmienione pliki dźwięków trafiły do wszystkich.
-const CACHE = "kanciapa-dart-v4";
+const CACHE = "kanciapa-dart-v7";
 
 const SOUND_NAMES = ["dart", "turn", "ton", "ton40", "180", "bust", "leg", "match"];
-const VOICE_NAMES = [...Array.from({ length: 181 }, (_, i) => String(i)), "bust", "gameshot", "match", "zostaje"];
+const NUMBERS = Array.from({ length: 181 }, (_, i) => String(i));
+const PHRASES = ["zostaje", "bust", "gameshot", "match"];
+// Domyślny podział stylów lektora — te nagrania zapisujemy od razu do pracy offline.
+// Inne style aplikacja dociąga w tle po wybraniu ich w ustawieniach.
+const DEFAULT_STYLE_FOR = (n) => (n < 50 ? "calm" : n < 100 ? "confident" : n < 150 ? "energetic" : n < 180 ? "enthusiastic" : "ecstatic");
 
 async function cacheIfExists(c, path) {
   try {
@@ -37,12 +41,38 @@ async function precache() {
   }
   await c.addAll([...new Set([...assets, ...extra])]);
   // Własne dźwięki i nagrany lektor (jeśli są w repozytorium).
-  await Promise.all(SOUND_NAMES.map((n) => cacheIfExists(c, `./sounds/${n}.mp3`)));
-  if (await cacheIfExists(c, "./voice/180.mp3")) {
-    for (let i = 0; i < VOICE_NAMES.length; i += 12) {
-      await Promise.all(VOICE_NAMES.slice(i, i + 12).map((n) => cacheIfExists(c, `./voice/${n}.mp3`)));
+  // Każdy dźwięk może mieć warianty: 180.mp3, 180-2.mp3 … 180-5.mp3.
+  await Promise.all(
+    SOUND_NAMES.map(async (n) => {
+      if (!(await cacheIfExists(c, `./sounds/${n}.mp3`))) return;
+      for (let v = 2; v <= 5; v++) if (!(await cacheIfExists(c, `./sounds/${n}-${v}.mp3`))) break;
+    }),
+  );
+  // Niespodzianki: surprise.mp3, surprise-2.mp3 … surprise-10.mp3.
+  if (await cacheIfExists(c, "./sounds/surprise.mp3")) {
+    for (let v = 2; v <= 10; v++) if (!(await cacheIfExists(c, `./sounds/surprise-${v}.mp3`))) break;
+  }
+  // Zwroty lektora i ich warianty (bust.mp3, bust-2.mp3…).
+  await Promise.all(
+    PHRASES.map(async (p) => {
+      if (!(await cacheIfExists(c, `./voice/${p}.mp3`))) return;
+      for (let v = 2; v <= 5; v++) if (!(await cacheIfExists(c, `./voice/${p}-${v}.mp3`))) break;
+    }),
+  );
+  // Liczby w domyślnych stylach (calm/0.mp3 …) oraz spokojne do „zostaje …”.
+  const nums = [...new Set([...NUMBERS.map((n) => `${DEFAULT_STYLE_FOR(Number(n))}/${n}`), ...NUMBERS.map((n) => `calm/${n}`)])];
+  if (await cacheIfExists(c, "./voice/calm/0.mp3")) {
+    for (let i = 0; i < nums.length; i += 12) {
+      await Promise.all(nums.slice(i, i + 12).map((n) => cacheIfExists(c, `./voice/${n}.mp3`)));
     }
   }
+  // Stary układ bez stylów (voice/180.mp3).
+  if (await cacheIfExists(c, "./voice/180.mp3")) {
+    for (let i = 0; i < NUMBERS.length; i += 12) {
+      await Promise.all(NUMBERS.slice(i, i + 12).map((n) => cacheIfExists(c, `./voice/${n}.mp3`)));
+    }
+  }
+
 }
 
 self.addEventListener("install", (event) => {
