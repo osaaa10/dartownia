@@ -1,44 +1,42 @@
 # Nagrany lektor
 
-Jeśli w tym folderze jest plik `180.mp3`, aplikacja przełącza się z głosu telefonu na nagrania stąd.
-Dzięki temu **wszyscy słyszą ten sam głos**, na każdym telefonie.
+Nagrania w tym folderze zastępują głos telefonu, więc **wszyscy słyszą ten sam głos**, na każdym telefonie i bez internetu.
 
-## Co nagrać
-
-**Liczby** — każda w osobnym pliku, nazwa = liczba:
+## Układ plików
 
 ```
-0.mp3  1.mp3  2.mp3 … 180.mp3
+voice/
+  calm/0.mp3 … calm/180.mp3                  spokojny
+  confident/0.mp3 … confident/180.mp3        pewny
+  energetic/0.mp3 … energetic/180.mp3        energiczny
+  enthusiastic/0.mp3 … enthusiastic/180.mp3  entuzjastyczny
+  ecstatic/100.mp3 … ecstatic/180.mp3        ekstatyczny (krzyk) — na razie tylko 100–180
 ```
 
-To 181 plików. Lektor czyta wynik kolejki („sto!”), a jeśli zostało 180 lub mniej, także ile zostało.
+Opcjonalnie (na razie ich nie ma, aplikacja działa bez nich):
 
-**Zwroty:**
+```
+  zostaje.mp3, zostaje-2.mp3                 „zostaje” (przed liczbą pozostałych punktów)
+  bust.mp3, bust-2.mp3, bust-3.mp3           bust
+  gameshot.mp3, gameshot-2.mp3               wygrany leg
+  match.mp3, match-2.mp3                     wygrany mecz
+```
 
-| Plik           | Co powiedzieć (przykład)            | Kiedy                          |
-|----------------|-------------------------------------|--------------------------------|
-| `zostaje.mp3`  | „zostaje”                           | przed liczbą pozostałych pkt   |
-| `bust.mp3`     | „Bust!” albo „Bez punktów!”         | bust                           |
-| `gameshot.mp3` | „Game shot!”                        | wygrany leg                    |
-| `match.mp3`    | „Game shot i mecz!”                 | wygrany mecz                   |
+Bez tych zwrotów lektor czyta sam wynik rzutu, a bust i wygrany leg/mecz mówi głos telefonu.
 
-Jeśli którejś liczby zabraknie, tę jedną kwestię powie głos telefonu, więc najlepiej nagrać komplet.
-Imion graczy nagrany lektor nie mówi.
+- Każdy w aplikacji wybiera w **Ustawienia → Lektor → Styl lektora**, jakim głosem mają być czytane wyniki
+  0–49, 50–99, 100–149, 150–179 i 180. Domyślnie: spokojny, pewny, energiczny, entuzjastyczny, ekstatyczny.
+- „Zostaje …” jest zawsze czytane stylem wybranym dla 0–49 (zwykle spokojnym).
+- Zwroty z numerem (`bust-2.mp3`) to warianty — aplikacja losuje jeden.
+- Brakujący styl dla danego przedziału zostanie pominięty w wyborze; brakująca liczba — powie ją głos telefonu.
+- Stary układ bez stylów (`voice/0.mp3 … voice/180.mp3`) też działa.
 
-## Jak nagrywać
+## Skąd są nagrania
 
-1. Nagraj wszystko w jednym miejscu, z tej samej odległości od mikrofonu. Wystarczy dyktafon w telefonie.
-2. Mów krótko i wyraźnie, z energią spikera: „Sto czterdzieści!”.
-3. Przytnij ciszę na początku i końcu każdego pliku (np. w darmowym Audacity: *Efekty → Przytnij ciszę*,
-   a potem *Plik → Eksportuj wiele*, żeby zapisać wszystkie naraz jako mp3).
-4. Pliki mp3, mono, ok. 64–96 kbps, zwykle 10–30 KB każdy.
+Wygenerowane w ElevenLabs (model Eleven v4, głos „Pavan M – Energetic Sports Commentator”) na płatnym planie,
+pocięte na pojedyncze liczby i wyrównane głośnościowo.
 
-Możesz też wygenerować nagrania jednorazowo w usłudze zamiany tekstu na mowę. Sprawdź wtedy, czy jej
-licencja pozwala publikować nagrania. Nie używaj głosów prawdziwych spikerów bez ich zgody.
+## Własny lektor
 
-## Jak wgrać
-
-Na GitHubie wejdź do folderu `public`, kliknij **Add file → Upload files** i przeciągnij folder `voice`
-z nagraniami (albo wejdź do `public/voice` i przeciągnij same pliki). Kliknij **Commit changes**,
-poczekaj na zielony ✓ w zakładce **Actions** i odśwież aplikację.
-W **Ustawienia → Lektor** pojawi się „Nagrany lektor”, a przyciskiem **Posłuchaj lektora** sprawdzisz efekt.
+Nagraj liczby 0–180 jednym ciągiem z ok. 1 s przerwy między nimi (lista: `lista-do-nagrania.txt`
+w rozmowie / w repozytorium), a potem potnij na pliki o nazwach jak wyżej — np. do nowego folderu stylu.

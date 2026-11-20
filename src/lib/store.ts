@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { DEFAULT_SETTINGS } from "../engine/game";
 import { normName } from "../engine/stats";
 import type { Game, InputMode, MatchSettings, Player } from "../engine/types";
+import { DEFAULT_VOICE_STYLES, type RangeKey, type VoiceStyle } from "./speech";
 
 export interface AppSettings {
   theme: "dark" | "light";
@@ -25,6 +26,8 @@ export interface AppSettings {
   usePack: boolean;
   /** Nagrany lektor mówi też, ile zostało (do 180). */
   callRemaining: boolean;
+  /** Styl nagranego lektora dla przedziałów wyników (r0, r50, r100, r150, r180). */
+  voiceStyles: Record<RangeKey, VoiceStyle>;
   /** Tarcza: "double" = drugie stuknięcie potwierdza, "single" = od razu. */
   boardConfirm: "double" | "single";
   inputMode: InputMode;
@@ -60,6 +63,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   speechRate: 1.05,
   usePack: true,
   callRemaining: true,
+  voiceStyles: DEFAULT_VOICE_STYLES,
   boardConfirm: "double",
   inputMode: "board",
   keepAwake: true,
@@ -91,6 +95,7 @@ export function sanitize(raw: unknown): AppData {
       ...DEFAULT_APP_SETTINGS,
       ...(r.settings ?? {}),
       lastMatch: { ...DEFAULT_SETTINGS, ...(r.settings?.lastMatch ?? {}) },
+      voiceStyles: { ...DEFAULT_VOICE_STYLES, ...(r.settings?.voiceStyles ?? {}) },
     },
   };
 }
