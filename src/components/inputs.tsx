@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Check, Delete, Undo2 } from "lucide-react";
-import { dartValue, displayLabel, isAchievable, suggestCheckout } from "../engine/darts";
+import { dartValue, displayLabel, finishHint, isAchievable, suggestCheckout, type FinishHint } from "../engine/darts";
 import { makeLabel } from "../engine/darts";
 import type { DartLabel, OutMode, TurnInput } from "../engine/types";
 import { cn, vibrate } from "../lib/util";
@@ -14,6 +14,34 @@ interface InputProps {
   scoreBefore: number;
   outMode: OutMode;
   onCommit: Commit;
+  /** Ulubione double aktywnego gracza. */
+  prefs?: number[];
+}
+
+/** Linia podpowiedzi: „Zamknięcie: T20 · D16” albo „Ustaw: 20 → zostaje 32 (D16)”. */
+export function HintLine({ hint }: { hint: FinishHint | null }) {
+  if (!hint) return null;
+  return (
+    <>
+      <span className="shrink-0 uppercase tracking-wider text-muted">{hint.kind === "checkout" ? "Zamknięcie:" : "Ustaw:"}</span>
+      {hint.route.map((r, i) => (
+        <span
+          key={i}
+          className={cn(
+            "rounded px-1.5 py-0.5 font-mono font-bold",
+            hint.kind === "checkout" ? "bg-accent/15 text-accent" : "bg-primary/15 text-primary",
+          )}
+        >
+          {displayLabel(r)}
+        </span>
+      ))}
+      {hint.kind === "setup" && (
+        <span className="truncate text-muted">
+          → zostaje {hint.leave} ({displayLabel(hint.double)})
+        </span>
+      )}
+    </>
+  );
 }
 
 // ---------------------------------------------------------------- nagłówek kolejki
@@ -30,14 +58,14 @@ function VisitHeader({
   total,
   remaining,
   status,
-  route,
+  hint,
   committing,
 }: {
   darts: DartLabel[];
   total: number;
   remaining: number;
   status: VisitStatus;
-  route: DartLabel[] | null;
+  hint: FinishHint | null;
   committing: boolean;
 }) {
   return (
@@ -91,16 +119,9 @@ function VisitHeader({
           <span className={cn("font-semibold", status === "bust" ? "text-danger" : "text-accent")}>
             {status === "bust" ? "Bust! " : status === "checkout" ? "Checkout! " : ""}Zatwierdzam… (możesz jeszcze cofnąć)
           </span>
-        ) : route ? (
-          <>
-            <span className="uppercase tracking-wider text-muted">Zamknięcie:</span>
-            {route.map((r, i) => (
-              <span key={i} className="rounded bg-accent/15 px-1.5 py-0.5 font-mono font-bold text-accent">
-                {displayLabel(r)}
-              </span>
-            ))}
-          </>
-        ) : null}
+        ) : (
+          <HintLine hint={hint} />
+        )}
       </div>
     </div>
   );
@@ -128,8 +149,8 @@ function VisitActions({
 
 // ---------------------------------------------------------------- tarcza
 
-export function BoardInput({ scoreBefore, outMode, onCommit, confirmMode }: InputProps & { confirmMode: "double" | "single" }) {
-  const v = useVisit(scoreBefore, outMode, onCommit);
+export function BoardInput({ scoreBefore, outMode, onCommit, prefs, confirmMode }: InputProps & { confirmMode: "double" | "single" }) {
+  const v = useVisit(scoreBefore, outMode, onCommit, prefs);
   const [pending, setPending] = useState<DartLabel | null>(null);
   const locked = v.status !== "open";
 
@@ -152,7 +173,7 @@ export function BoardInput({ scoreBefore, outMode, onCommit, confirmMode }: Inpu
     [locked, confirmMode, pending, v.add],
   );
 
-  const hint = v.route?.[0] ?? null;
+  const hint = v.hint?.route[0] ?? null;
 
   return (
     <div className="space-y-2.5">
@@ -211,8 +232,8 @@ export function BoardInput({ scoreBefore, outMode, onCommit, confirmMode }: Inpu
 
 // ---------------------------------------------------------------- klawiatura segmentów
 
-export function KeypadInput({ scoreBefore, outMode, onCommit }: InputProps) {
-  const v = useVisit(scoreBefore, outMode, onCommit);
+export function KeypadInput({ scoreBefore, outMode, onCommit, prefs }: InputProps) {
+  const v = useVisit(scoreBefore, outMode, onCommit, prefs);
   const [mult, setMult] = useState<1 | 2 | 3>(1);
   const locked = v.status !== "open";
 
@@ -293,7 +314,7 @@ export function KeypadInput({ scoreBefore, outMode, onCommit }: InputProps) {
 
 const PRESETS = [26, 41, 45, 60, 81, 85, 100, 121, 140, 180];
 
-export function NumpadInput({ scoreBefore, outMode, onCommit }: InputProps) {
+export function NumpadInput({ scoreBefore, outMode, onCommit, prefs }: InputProps) {
   const [value, setValue] = useState("");
   const [askFinish, setAskFinish] = useState(false);
   const [askImpossible, setAskImpossible] = useState(false);
@@ -350,7 +371,13 @@ export function NumpadInput({ scoreBefore, outMode, onCommit }: InputProps) {
             </div>
           </div>
         </div>
-        <div className="mt-1 h-4 text-[11px] text-warn">{num > 180 ? "Maksymalnie 180" : ""}</div>
+        <div className="mt-2 flex h-6 items-center gap-2 overflow-hidden text-xs">
+          {num > 180 ? (
+            <span className="text-warn">Maksymalnie 180</span>
+          ) : (
+            <HintLine hint={finishHint(scoreBefore, outMode, 3, prefs)} />
+          )}
+        </div>
       </div>
       <div className="grid grid-cols-5 gap-1.5">
         {PRESETS.map((n) => (

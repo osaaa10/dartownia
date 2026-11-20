@@ -6,6 +6,7 @@ import {
   doubleOutTable,
   isAchievable,
   isValidFinishDart,
+  finishHint,
   suggestCheckout,
 } from "./darts";
 import { addTurn, createGame, evaluateTurn, legsNeeded, rematch, replaceLastTurn, replay, undoTurn } from "./game";
@@ -176,5 +177,41 @@ describe("statystyki", () => {
     expect(a.matches).toBe(2);
     expect(a.wins).toBe(2);
     expect(a.form).toHaveLength(2);
+  });
+});
+
+describe("ulubione double", () => {
+  it("wybiera drogę na ulubiony double przy tej samej liczbie lotek", () => {
+    expect(finishHint(80, "double", 3)).toEqual({ kind: "checkout", route: ["T20", "D10"] });
+    expect(finishHint(80, "double", 3, [16])).toEqual({ kind: "checkout", route: ["T16", "D16"] });
+  });
+  it("nie każe ustawiać na double: 121 z D16, D8 -> T20 T15 D8", () => {
+    expect(finishHint(121, "double", 3, [16, 8])?.route).toEqual(["T20", "T15", "D8"]);
+    expect(finishHint(121, "double", 3, [16])?.route).toEqual(["T20", "T11", "D14"]);
+  });
+  it("nie wydłuża zakończenia: 40 zostaje D20 mimo ulubionego D16", () => {
+    expect(finishHint(40, "double", 3, [16])).toEqual({ kind: "checkout", route: ["D20"] });
+  });
+  it("kolejność ulubionych ma znaczenie", () => {
+    expect(finishHint(84, "double", 3, [18, 12])?.route).toEqual(["T16", "D18"]);
+    expect(finishHint(84, "double", 3, [12, 18])?.route).toEqual(["T20", "D12"]);
+  });
+  it("gdy nie da się zamknąć — ustawia wynik na ulubiony double", () => {
+    const h = finishHint(200, "double", 3, [16]);
+    expect(h?.kind).toBe("setup");
+    if (h?.kind === "setup") {
+      expect(h.leave).toBe(32);
+      expect(h.route.reduce((s, l) => s + dartValue(l), 0)).toBe(168);
+    }
+    // jedna lotka zostala, 52 -> 20 zostawia 32
+    expect(finishHint(52, "double", 1, [16])).toEqual({ kind: "setup", route: ["S20"], leave: 32, double: "D16" });
+  });
+  it("bez ulubionych ustawia na domyślne double", () => {
+    const h = finishHint(210, "double", 3);
+    expect(h).toMatchObject({ kind: "setup", route: ["T20", "T20", "T18"], leave: 36 });
+    expect(finishHint(400, "double", 3)).toBeNull();
+  });
+  it("single out nie podpowiada ustawiania", () => {
+    expect(finishHint(250, "single", 3)).toBeNull();
   });
 });

@@ -14,6 +14,13 @@ export interface AppSettings {
   speechVolume: number;
   /** Lektor zapowiada, kto rzuca następny. */
   announceNext: boolean;
+  /** Wybrany głos telefonu (voiceURI) albo null = automatycznie. */
+  voiceURI: string | null;
+  speechRate: number;
+  /** Używaj nagranego lektora z public/voice/, jeśli jest. */
+  usePack: boolean;
+  /** Nagrany lektor mówi też, ile zostało (do 180). */
+  callRemaining: boolean;
   /** Tarcza: "double" = drugie stuknięcie potwierdza, "single" = od razu. */
   boardConfirm: "double" | "single";
   inputMode: InputMode;
@@ -25,6 +32,7 @@ export interface SavedPlayer {
   name: string;
   color: string;
   lastUsed: number;
+  doubles?: number[];
 }
 
 export interface AppData {
@@ -42,6 +50,10 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   speech: true,
   speechVolume: 0.9,
   announceNext: true,
+  voiceURI: null,
+  speechRate: 1.05,
+  usePack: true,
+  callRemaining: true,
   boardConfirm: "double",
   inputMode: "board",
   keepAwake: true,
@@ -110,7 +122,8 @@ function rememberPlayers(saved: SavedPlayer[], players: Player[]): SavedPlayer[]
   const map = new Map(saved.map((s) => [normName(s.name), s]));
   for (const p of players) {
     if (!p.name.trim()) continue;
-    map.set(normName(p.name), { name: p.name.trim(), color: p.color, lastUsed: now });
+    const prev = map.get(normName(p.name));
+    map.set(normName(p.name), { name: p.name.trim(), color: p.color, lastUsed: now, doubles: p.doubles ?? prev?.doubles });
   }
   return [...map.values()].sort((a, b) => b.lastUsed - a.lastUsed).slice(0, 100);
 }
@@ -173,12 +186,36 @@ export function useAppData() {
   }, []);
 
   const startGame = useCallback((game: Game) => {
-    setData((d) => ({
-      ...d,
-      activeGame: game,
-      savedPlayers: rememberPlayers(d.savedPlayers, game.players),
-      settings: { ...d.settings, lastMatch: game.settings },
-    }));
+    setData((d) => {
+      // Ulubione double z zapisanych graczy, jeśli nie ustawiono ich przed meczem.
+      const saved = new Map(d.savedPlayers.map((s) => [normName(s.name), s]));
+      const players = game.players.map((p) =>
+        p.doubles === undefined && saved.get(normName(p.name))?.doubles
+          ? { ...p, doubles: saved.get(normName(p.name))!.doubles }
+          : p,
+      );
+      const g = { ...game, players };
+      return {
+        ...d,
+        activeGame: g,
+        savedPlayers: rememberPlayers(d.savedPlayers, players),
+        settings: { ...d.settings, lastMatch: game.settings },
+      };
+    });
+  }, []);
+
+  /** Zapamiętuje ulubione double gracza (po nazwie) na przyszłe mecze. */
+  const saveDoubles = useCallback((name: string, doubles: number[]) => {
+    const k = normName(name);
+    setData((d) => {
+      const exists = d.savedPlayers.some((s) => normName(s.name) === k);
+      return {
+        ...d,
+        savedPlayers: exists
+          ? d.savedPlayers.map((s) => (normName(s.name) === k ? { ...s, doubles } : s))
+          : d.savedPlayers,
+      };
+    });
   }, []);
 
   const setSettings = useCallback((fn: (s: AppSettings) => AppSettings) => {
@@ -216,6 +253,7 @@ export function useAppData() {
     setSettings,
     deleteFromHistory,
     forgetPlayer,
+    saveDoubles,
     replaceAll,
     wipe,
   };

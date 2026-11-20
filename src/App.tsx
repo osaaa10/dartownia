@@ -58,7 +58,18 @@ export default function App() {
     sound.volume = s.volume;
     speech.enabled = s.speech;
     speech.volume = s.speechVolume;
-  }, [s.sound, s.volume, s.speech, s.speechVolume]);
+    speech.rate = s.speechRate;
+    speech.voiceURI = s.voiceURI;
+    speech.usePack = s.usePack;
+    speech.callRemaining = s.callRemaining;
+    speech.announceNext = s.announceNext;
+  }, [s.sound, s.volume, s.speech, s.speechVolume, s.speechRate, s.voiceURI, s.usePack, s.callRemaining, s.announceNext]);
+
+  // Własne dźwięki i nagrany lektor z repozytorium (public/sounds, public/voice).
+  useEffect(() => {
+    void sound.detect();
+    void speech.detectPack();
+  }, []);
 
   useEffect(() => {
     const on = (e: Event) => {

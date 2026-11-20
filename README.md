@@ -15,12 +15,25 @@ Zrobiona do grania ze znajomymi: kładziesz telefon przy tarczy, wpisujecie imio
   - **Tarcza**: stukasz pole, w które trafiła lotka. Domyślnie drugie stuknięcie potwierdza, żeby nie było pomyłek; w ustawieniach można to zmienić na jedno stuknięcie.
   - **Pola**: przyciski Single/Double/Treble i numery 1–20
   - **Suma**: wpisujesz wynik całej kolejki
-- **Podpowiedzi zakończeń** (np. przy 121 pokazuje T20 · 11 · Bull), które aktualizują się po każdej lotce
+- **Podpowiedzi zakończeń** we wszystkich trybach wpisywania, aktualizowane po każdej lotce
+- **Ulubione double** każdego gracza: podpowiedź prowadzi na nie (bez wydłużania zakończenia), a gdy w tej kolejce nie da się zamknąć, pokazuje, jak zostawić sobie ulubiony double (np. „Ustaw: 20 → zostaje 32 (D16)”)
 - **Lektor po polsku** czyta wynik i mówi, kto rzuca następny
 - **Cofanie** dowolnej liczby kolejek, także po wygranym legu i po końcu meczu
 - **Historia meczów i statystyki**: średnia, pierwsze 9, checkout %, 100+/140+/180, najkrótszy leg, ranking graczy, forma i heatmapa trafień
 - Ekran nie gaśnie w trakcie meczu
 - Kopia zapasowa do pliku i wczytywanie jej na innym urządzeniu
+
+## Własne dźwięki i nagrany lektor
+
+Dźwięki i głos lektora mogą być plikami w repozytorium. Wtedy każdy, kto otworzy aplikację, słyszy to samo.
+
+- **Dźwięki** (180, bust, wygrany leg itd.): pliki mp3 w folderze `public/sounds/`.
+  Lista nazw jest w [public/sounds/README.md](public/sounds/README.md).
+- **Nagrany lektor** (liczby 0–180 i kilka zwrotów): pliki mp3 w folderze `public/voice/`.
+  Lista i instrukcja nagrywania jest w [public/voice/README.md](public/voice/README.md).
+
+Bez tych plików aplikacja używa wbudowanych sygnałów i głosu telefonu. Głos telefonu można wybrać
+w **Ustawienia → Lektor**.
 
 ## Prywatność
 

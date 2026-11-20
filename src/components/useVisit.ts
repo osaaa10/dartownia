@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { dartValue, suggestCheckout } from "../engine/darts";
+import { dartValue, finishHint } from "../engine/darts";
 import { evaluateTurn } from "../engine/game";
 import type { DartLabel, OutMode, TurnInput } from "../engine/types";
 import { sound } from "../lib/audio";
@@ -14,7 +14,12 @@ const COMMIT_DELAY = 650;
  * Stan bieżącej kolejki (do 3 lotek) dla tarczy i klawiatury segmentów.
  * Komponent jest montowany od nowa przy każdej kolejce (key), więc nie trzeba go resetować.
  */
-export function useVisit(scoreBefore: number, out: OutMode, onCommit: (t: Omit<TurnInput, "at">) => void) {
+export function useVisit(
+  scoreBefore: number,
+  out: OutMode,
+  onCommit: (t: Omit<TurnInput, "at">) => void,
+  prefs: number[] = [],
+) {
   const [darts, setDarts] = useState<DartLabel[]>([]);
   const [committing, setCommitting] = useState(false);
   const timer = useRef<number | null>(null);
@@ -35,7 +40,7 @@ export function useVisit(scoreBefore: number, out: OutMode, onCommit: (t: Omit<T
           ? "full"
           : "open";
   const remaining = status === "bust" ? scoreBefore : scoreBefore - total;
-  const route = status === "open" ? suggestCheckout(remaining, out, 3 - darts.length) : null;
+  const hint = status === "open" ? finishHint(remaining, out, 3 - darts.length, prefs) : null;
 
   const cancelTimer = () => {
     if (timer.current) window.clearTimeout(timer.current);
@@ -68,7 +73,7 @@ export function useVisit(scoreBefore: number, out: OutMode, onCommit: (t: Omit<T
   const add = (label: DartLabel) => {
     if (status !== "open" || committed.current) return;
     vibrate(10);
-    sound.dart();
+    sound.play("dart");
     setDarts((d) => (d.length >= 3 ? d : [...d, label]));
   };
 
@@ -89,5 +94,5 @@ export function useVisit(scoreBefore: number, out: OutMode, onCommit: (t: Omit<T
     commitNow(darts, true);
   };
 
-  return { darts, total, remaining, status, route, committing, add, undo, finish, manualBust };
+  return { darts, total, remaining, status, hint, committing, add, undo, finish, manualBust };
 }

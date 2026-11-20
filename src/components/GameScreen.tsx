@@ -11,11 +11,12 @@ import {
   Pencil,
   RotateCcw,
   Settings,
+  Target,
   Trophy,
   Undo2,
 } from "lucide-react";
 import { displayLabel, suggestCheckout } from "../engine/darts";
-import { addTurn, describeSettings, legsNeeded, rematch, renamePlayer, replay, undoTurn } from "../engine/game";
+import { addTurn, describeSettings, legsNeeded, rematch, renamePlayer, replay, setPlayerDoubles, undoTurn } from "../engine/game";
 import { gameStats, legAverage, type PlayerStats } from "../engine/stats";
 import type { Game, GameView, InputMode, TurnInput } from "../engine/types";
 import { sound } from "../lib/audio";
@@ -23,6 +24,7 @@ import { speech } from "../lib/speech";
 import type { AppStore } from "../lib/store";
 import { cn, fmtNum, pl } from "../lib/util";
 import { BoardInput, KeypadInput, NumpadInput } from "./inputs";
+import { DoublesPicker, doublesText } from "./DoublesPicker";
 import { Button, ConfirmDialog, Modal } from "./ui";
 
 interface Props {
@@ -74,6 +76,8 @@ export function GameScreen({ store, game, onPause, onNewGame, onOpenSettings, no
   const [isFs, setIsFs] = useState(!!document.fullscreenElement);
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
   const [confirmUndo, setConfirmUndo] = useState(false);
+  const [pickDoubles, setPickDoubles] = useState<string | null>(null);
+  const pickPlayer = game.players.find((p) => p.id === pickDoubles);
 
   useWakeLock(settings.keepAwake && !view.finished);
 
@@ -99,29 +103,35 @@ export function GameScreen({ store, game, onPause, onNewGame, onOpenSettings, no
     const who = game.players.find((p) => p.id === t.playerId)!;
     const nextP = next.players[nv.currentPlayerIndex];
     const nextScore = nv.legs[nv.currentLegIndex].scores[nextP.id];
-    const then = settings.announceNext && !nv.finished ? ` Teraz ${nextP.name}, ${nextScore}.` : "";
+    const base = {
+      scored: t.scored,
+      remaining: t.scoreAfter,
+      player: who.name,
+      nextName: nv.finished ? undefined : nextP.name,
+      nextScore,
+    };
 
     if (t.isBust) {
-      sound.bust();
+      sound.play("bust");
       setFlash("bust");
       notify(`Bust — ${who.name}`, "bad");
-      speech.say(`Bust!${then}`);
+      void speech.announce({ ...base, kind: "bust" });
     } else if (nv.finished) {
-      sound.match();
-      speech.say(`Checkout ${t.scored}! Mecz wygrywa ${who.name}!`);
+      sound.play("match");
+      void speech.announce({ ...base, kind: "match" });
     } else if (t.isCheckout) {
-      sound.leg();
+      sound.play("leg");
       notify(`${who.name} wygrywa lega!`, "good");
-      speech.say(`Checkout ${t.scored}! Leg wygrywa ${who.name}.${then}`);
+      void speech.announce({ ...base, kind: "leg" });
     } else {
       if (t.scored === 180) {
-        sound.max();
+        sound.play("180");
         setFlash("max");
         notify(`180! ${who.name}`, "good");
-      } else if (t.scored >= 140) sound.ton40();
-      else if (t.scored >= 100) sound.ton();
-      else sound.click();
-      speech.say(`${t.scored === 180 ? "Sto osiemdziesiąt!" : t.scored}. Zostaje ${t.scoreAfter}.${then}`);
+      } else if (t.scored >= 140) sound.play("ton40");
+      else if (t.scored >= 100) sound.play("ton");
+      else sound.play("turn");
+      void speech.announce({ ...base, kind: "turn" });
     }
   };
 
@@ -134,7 +144,7 @@ export function GameScreen({ store, game, onPause, onNewGame, onOpenSettings, no
   const doUndo = () => {
     setConfirmUndo(false);
     store.updateGame(undoTurn);
-    speech.say("Cofnięto.");
+    speech.stop();
     notify("Cofnięto ostatnią kolejkę");
   };
 
@@ -198,17 +208,24 @@ export function GameScreen({ store, game, onPause, onNewGame, onOpenSettings, no
         </div>
       </div>
 
-      <Scoreboard game={game} view={view} stats={stats} needed={needed} onRename={(id, name) => setRenaming({ id, name })} />
+      <Scoreboard
+        game={game}
+        view={view}
+        stats={stats}
+        needed={needed}
+        onRename={(id, name) => setRenaming({ id, name })}
+        onDoubles={(id) => setPickDoubles(id)}
+      />
 
       {/* Wprowadzanie — montowane od nowa przy każdej kolejce */}
       {!view.finished && (
         <div key={`${game.id}-${game.turns.length}`}>
           {settings.inputMode === "board" ? (
-            <BoardInput scoreBefore={score} outMode={game.settings.outMode} onCommit={commit} confirmMode={settings.boardConfirm} />
+            <BoardInput scoreBefore={score} outMode={game.settings.outMode} onCommit={commit} prefs={player.doubles} confirmMode={settings.boardConfirm} />
           ) : settings.inputMode === "keypad" ? (
-            <KeypadInput scoreBefore={score} outMode={game.settings.outMode} onCommit={commit} />
+            <KeypadInput scoreBefore={score} outMode={game.settings.outMode} onCommit={commit} prefs={player.doubles} />
           ) : (
-            <NumpadInput scoreBefore={score} outMode={game.settings.outMode} onCommit={commit} />
+            <NumpadInput scoreBefore={score} outMode={game.settings.outMode} onCommit={commit} prefs={player.doubles} />
           )}
         </div>
       )}
@@ -263,6 +280,18 @@ export function GameScreen({ store, game, onPause, onNewGame, onOpenSettings, no
         </form>
       </Modal>
 
+      <DoublesPicker
+        open={!!pickPlayer}
+        name={pickPlayer?.name ?? ""}
+        value={pickPlayer?.doubles}
+        onClose={() => setPickDoubles(null)}
+        onSave={(d) => {
+          if (!pickPlayer) return;
+          store.updateGame((g) => setPlayerDoubles(g, pickPlayer.id, d));
+          store.saveDoubles(pickPlayer.name, d);
+        }}
+      />
+
       <WinnerModal
         game={game}
         view={view}
@@ -283,12 +312,14 @@ function Scoreboard({
   stats,
   needed,
   onRename,
+  onDoubles,
 }: {
   game: Game;
   view: GameView;
   stats: Record<string, PlayerStats>;
   needed: number;
   onRename: (id: string, name: string) => void;
+  onDoubles: (id: string) => void;
 }) {
   const [open, setOpen] = useState<string | null>(null);
   const leg = view.legs[view.currentLegIndex];
@@ -350,12 +381,21 @@ function Scoreboard({
               {isOpen && (
                 <div className="border-t border-line/60 bg-surface2/50 px-3 pb-3 pt-2">
                   <StatGrid s={s} />
-                  <button
-                    onClick={() => onRename(p.id, p.name)}
-                    className="mt-2 inline-flex items-center gap-1 text-xs text-muted hover:text-fg"
-                  >
-                    <Pencil className="h-3 w-3" /> Zmień nazwę
-                  </button>
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                    <button
+                      onClick={() => onRename(p.id, p.name)}
+                      className="inline-flex items-center gap-1 text-xs text-muted hover:text-fg"
+                    >
+                      <Pencil className="h-3 w-3" /> Zmień nazwę
+                    </button>
+                    <button
+                      onClick={() => onDoubles(p.id)}
+                      className="inline-flex items-center gap-1 text-xs text-muted hover:text-fg"
+                    >
+                      <Target className="h-3 w-3" /> Ulubione double:{" "}
+                      <b className={p.doubles?.length ? "text-accent" : ""}>{doublesText(p.doubles) || "brak"}</b>
+                    </button>
+                  </div>
                 </div>
               )}
             </li>

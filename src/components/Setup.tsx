@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ArrowDown, ArrowRight, ArrowUp, Crown, Play, Plus, Shuffle, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUp, Crown, Play, Plus, Shuffle, Target, Trash2, X } from "lucide-react";
+import { DoublesPicker } from "./DoublesPicker";
 import { PLAYER_COLORS, createGame, describeSettings, replay, uid } from "../engine/game";
 import { normName } from "../engine/stats";
 import { MAX_PLAYERS, type Game, type MatchSettings, type OutMode, type Player } from "../engine/types";
@@ -70,15 +71,21 @@ export function PlayerSetup({
   const dupes = names.filter((n, i) => n && names.indexOf(n) !== i);
   const empty = players.some((p) => !p.name.trim());
 
-  const add = (name = "", color?: string) => {
-    if (players.length >= MAX_PLAYERS) return;
+  const [picking, setPicking] = useState<string | null>(null);
+  const picked = players.find((p) => p.id === picking);
+
+  const add = (name = "", color?: string, doubles?: number[]) => {
     const emptyIdx = name ? players.findIndex((p) => !p.name.trim()) : -1;
     if (emptyIdx >= 0) {
-      setPlayers(players.map((p, i) => (i === emptyIdx ? { ...p, name, color: color ?? p.color } : p)));
+      setPlayers(players.map((p, i) => (i === emptyIdx ? { ...p, name, color: color ?? p.color, doubles } : p)));
       return;
     }
-    setPlayers([...players, { id: uid(), name, color: color ?? nextColor(players) }]);
+    if (players.length >= MAX_PLAYERS) return;
+    setPlayers([...players, { id: uid(), name, color: color ?? nextColor(players), doubles }]);
   };
+  /** Ulubione double: ustawione przy graczu albo zapamiętane pod tą nazwą. */
+  const doublesOf = (p: Player) =>
+    p.doubles ?? saved.find((s) => normName(s.name) === normName(p.name))?.doubles;
   const update = (id: string, name: string) => setPlayers(players.map((p) => (p.id === id ? { ...p, name } : p)));
   const remove = (id: string) => setPlayers(players.filter((p) => p.id !== id));
   const move = (i: number, dir: -1 | 1) => {
@@ -129,9 +136,22 @@ export function PlayerSetup({
               aria-label={`Nazwa gracza ${i + 1}`}
               className="h-10 min-w-0 flex-1 rounded-md bg-transparent px-2 text-base outline-none focus:bg-surface2"
             />
+            <button
+              type="button"
+              onClick={() => setPicking(p.id)}
+              className={cn(
+                "flex h-8 shrink-0 items-center gap-1 rounded-md border px-2 font-mono text-[11px] font-bold",
+                doublesOf(p)?.length ? "border-accent/50 text-accent" : "border-line text-muted",
+              )}
+              aria-label={`Ulubione double — ${p.name || `gracz ${i + 1}`}`}
+              title="Ulubione double"
+            >
+              <Target className="h-3.5 w-3.5" />
+              {doublesOf(p)?.length ? doublesOf(p)!.map((d) => (d === 25 ? "B" : d)).join("·") : "D?"}
+            </button>
             {i === 0 ? (
-              <span className="flex items-center gap-1 rounded-md bg-accent/15 px-2 py-1 text-[10px] font-bold uppercase text-accent">
-                <Crown className="h-3 w-3" /> Zaczyna
+              <span className="flex items-center gap-1 rounded-md bg-accent/15 px-2 py-1 text-[10px] font-bold uppercase text-accent" title="Zaczyna">
+                <Crown className="h-3 w-3" />
               </span>
             ) : null}
             <div className="flex">
@@ -166,7 +186,7 @@ export function PlayerSetup({
             {available.slice(0, 16).map((s) => (
               <button
                 key={s.name}
-                onClick={() => add(s.name, s.color)}
+                onClick={() => add(s.name, s.color, s.doubles)}
                 disabled={players.length >= MAX_PLAYERS && !players.some((p) => !p.name.trim())}
                 className="flex items-center gap-1.5 rounded-full border border-line bg-surface2 px-3 py-1 text-sm"
               >
@@ -181,6 +201,22 @@ export function PlayerSetup({
       <Button className="w-full border-dashed" onClick={() => add()} disabled={players.length >= MAX_PLAYERS}>
         <Plus className="h-4 w-4" /> Dodaj gracza
       </Button>
+
+      <DoublesPicker
+        open={!!picked}
+        name={picked?.name.trim() ?? ""}
+        value={picked ? doublesOf(picked) : undefined}
+        onClose={() => setPicking(null)}
+        onSave={(d) => {
+          if (!picked) return;
+          setPlayers(players.map((p) => (p.id === picked.id ? { ...p, doubles: d } : p)));
+          if (picked.name.trim()) store.saveDoubles(picked.name, d);
+        }}
+      />
+      <p className="text-[11px] text-muted">
+        <Target className="mr-1 inline h-3 w-3" />
+        — ulubione double gracza. Podpowiedzi zakończeń prowadzą na nie.
+      </p>
 
       {empty && <p className="text-sm text-warn">Wpisz imię każdego gracza.</p>}
       {dupes.length > 0 && <p className="text-sm text-warn">Dwóch graczy ma to samo imię — statystyki by się pomieszały.</p>}

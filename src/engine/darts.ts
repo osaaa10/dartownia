@@ -194,6 +194,102 @@ function computeCheckout(score: number, out: OutMode, dartsLeft: number): DartLa
   return search(score, out, dartsLeft);
 }
 
+// ---------- Ulubione double i ustawianie wyniku ----------
+
+/** 1–20 → "D16", 25 → "BULL". */
+export function doubleLabel(n: number): DartLabel {
+  return n === 25 ? "BULL" : `D${n}`;
+}
+const doubleValue = (n: number) => (n === 25 ? 50 : n * 2);
+
+/** Domyślne „dobre” double do zostawienia, gdy gracz nie wybrał swoich. */
+const DEFAULT_LEAVES = [20, 16, 18, 10, 8, 12];
+
+const sumCache = new Map<string, DartLabel[] | null>();
+/** Lotki „ustawiające”: treble, single i 25 — bez rzucania w double/bulla po drodze. */
+const CLEAN_ORDER = SETUP_ORDER.filter((l) => !l.startsWith("D") && l !== "BULL");
+
+/** `n` lotek (bez pudeł) sumujących się dokładnie do `total`. clean = bez doubli i bulla. */
+function searchSum(total: number, n: number, clean = true): DartLabel[] | null {
+  if (total <= 0 || total > 60 * n) return null;
+  const key = `${total}:${n}:${clean}`;
+  if (sumCache.has(key)) return sumCache.get(key)!;
+  const order = clean ? CLEAN_ORDER : SETUP_ORDER;
+  let r: DartLabel[] | null = null;
+  if (n === 1) {
+    const one = order.find((s) => dartValue(s) === total);
+    r = one ? [one] : null;
+  } else {
+    for (const s of order) {
+      const tail = searchSum(total - dartValue(s), n - 1, clean);
+      if (tail) {
+        r = [s, ...tail];
+        break;
+      }
+    }
+  }
+  sumCache.set(key, r);
+  return r;
+}
+
+/** Droga z dokładnie `n` lotek kończąca się konkretną lotką `finish`. */
+function searchEnding(score: number, out: OutMode, n: number, finish: DartLabel): DartLabel[] | null {
+  const rest = score - dartValue(finish);
+  if (n === 1) return rest === 0 ? [finish] : null;
+  if (rest <= 0 || isDeadScore(rest, out)) return null;
+  const setup = searchSum(rest, n - 1, true);
+  return setup ? [...setup, finish] : null;
+}
+
+export type FinishHint =
+  | { kind: "checkout"; route: DartLabel[] }
+  | { kind: "setup"; route: DartLabel[]; leave: number; double: DartLabel };
+
+const hintCache = new Map<string, FinishHint | null>();
+
+/**
+ * Podpowiedź na bieżącą kolejkę:
+ * - jeśli da się zamknąć — droga zakończenia; gdy najkrótszą drogę da się skończyć
+ *   na ulubionym doublu gracza, wybieramy ją (ta sama liczba lotek co domyślna);
+ * - jeśli nie da się zamknąć — jak ustawić wynik, żeby zostało na ulubiony double.
+ * `prefs`: ulubione double w kolejności (1–20, 25 = bull).
+ */
+export function finishHint(score: number, out: OutMode, dartsLeft = 3, prefs: number[] = []): FinishHint | null {
+  const key = `${out}:${score}:${dartsLeft}:${prefs.join(",")}`;
+  if (hintCache.has(key)) return hintCache.get(key)!;
+  const r = computeHint(score, out, dartsLeft, prefs);
+  hintCache.set(key, r);
+  return r;
+}
+
+function computeHint(score: number, out: OutMode, dartsLeft: number, prefs: number[]): FinishHint | null {
+  if (score < 2 || dartsLeft < 1) return null;
+  const def = suggestCheckout(score, out, dartsLeft);
+  if (def) {
+    if (out !== "single") {
+      const n = def.length;
+      for (const p of prefs) {
+        const lbl = doubleLabel(p);
+        if (def[n - 1] === lbl) return { kind: "checkout", route: def };
+        const alt = searchEnding(score, out, n, lbl);
+        if (alt) return { kind: "checkout", route: alt };
+      }
+    }
+    return { kind: "checkout", route: def };
+  }
+  if (out === "single") return null;
+  const leaves = [...new Set([...prefs, ...DEFAULT_LEAVES])];
+  for (const clean of [true, false]) {
+    for (let n = 1; n <= dartsLeft; n++) {
+      for (const p of leaves) {
+        const setup = searchSum(score - doubleValue(p), n, clean);
+        if (setup) return { kind: "setup", route: setup, leave: doubleValue(p), double: doubleLabel(p) };
+      }
+    }
+  }
+  return null;
+}
+
 /** Czy wynik da się zamknąć w jednej kolejce (do liczenia prób checkoutu). */
 export function canFinish(score: number, out: OutMode, dartsLeft = 3): boolean {
   return suggestCheckout(score, out, dartsLeft) !== null;

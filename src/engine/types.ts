@@ -17,6 +17,8 @@ export interface Player {
   name: string;
   /** Kolor jako trójka HSL, np. "243 75% 59%". */
   color: string;
+  /** Ulubione double w kolejności (1–20, 25 = bull) — do podpowiedzi zakończeń. */
+  doubles?: number[];
 }
 
 export interface MatchSettings {

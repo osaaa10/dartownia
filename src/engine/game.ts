@@ -210,6 +210,10 @@ export function renamePlayer(game: Game, playerId: string, name: string): Game {
   return { ...game, players: game.players.map((p) => (p.id === playerId ? { ...p, name: clean } : p)) };
 }
 
+export function setPlayerDoubles(game: Game, playerId: string, doubles: number[]): Game {
+  return { ...game, players: game.players.map((p) => (p.id === playerId ? { ...p, doubles } : p)) };
+}
+
 /** Rewanż: ci sami gracze, kolejność przesunięta o jeden (zaczyna następny). */
 export function rematch(game: Game): Game {
   const [first, ...rest] = game.players;

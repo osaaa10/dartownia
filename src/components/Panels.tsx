@@ -1,5 +1,7 @@
-import { useMemo, useRef, useState } from "react";
-import { Download, Trash2, Trophy, Upload } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Download, Play, Trash2, Trophy, Upload, Volume2 } from "lucide-react";
+import { SOUND_EVENTS, sound, type SoundEvent } from "../lib/audio";
+import { speech } from "../lib/speech";
 import { describeSettings, replay } from "../engine/game";
 import { careerStats, gameStats, type CareerStats, type StatsFilter } from "../engine/stats";
 import type { Game } from "../engine/types";
@@ -375,38 +377,9 @@ export function SettingsPanel({
           />
         </div>
 
+        <AudioSettings store={store} open={open} />
+
         <div className="rounded-xl border border-line bg-surface2 px-4">
-          <Row label="Dźwięki" desc="Krótkie sygnały przy rzutach">
-            <Switch checked={s.sound} onChange={(v) => set((x) => ({ ...x, sound: v }))} label="Dźwięki" />
-          </Row>
-          <Row label="Głośność dźwięków">
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={Math.round(s.volume * 100)}
-              onChange={(e) => set((x) => ({ ...x, volume: Number(e.target.value) / 100 }))}
-              className="w-32 accent-[rgb(var(--primary))]"
-              aria-label="Głośność dźwięków"
-            />
-          </Row>
-          <Row label="Lektor" desc="Czyta wynik po każdej kolejce">
-            <Switch checked={s.speech} onChange={(v) => set((x) => ({ ...x, speech: v }))} label="Lektor" />
-          </Row>
-          <Row label="Zapowiadaj następnego" desc="„Teraz Kasia, 301”">
-            <Switch checked={s.announceNext} onChange={(v) => set((x) => ({ ...x, announceNext: v }))} label="Zapowiadaj następnego" />
-          </Row>
-          <Row label="Głośność lektora">
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={Math.round(s.speechVolume * 100)}
-              onChange={(e) => set((x) => ({ ...x, speechVolume: Number(e.target.value) / 100 }))}
-              className="w-32 accent-[rgb(var(--primary))]"
-              aria-label="Głośność lektora"
-            />
-          </Row>
           <Row label="Nie wygaszaj ekranu" desc="W trakcie meczu">
             <Switch checked={s.keepAwake} onChange={(v) => set((x) => ({ ...x, keepAwake: v }))} label="Nie wygaszaj ekranu" />
           </Row>
@@ -481,5 +454,148 @@ export function SettingsPanel({
         onCancel={() => setConfirmWipe(false)}
       />
     </Modal>
+  );
+}
+
+// ---------------------------------------------------------------- dźwięk i lektor
+
+function Slider({ value, onChange, label, min = 0, max = 100 }: { value: number; onChange: (v: number) => void; label: string; min?: number; max?: number }) {
+  return (
+    <input
+      type="range"
+      min={min}
+      max={max}
+      value={value}
+      onChange={(e) => onChange(Number(e.target.value))}
+      className="w-32 accent-[rgb(var(--primary))]"
+      aria-label={label}
+    />
+  );
+}
+
+function AudioSettings({ store, open }: { store: AppStore; open: boolean }) {
+  const s = store.data.settings;
+  const set = store.setSettings;
+  const [found, setFound] = useState<Partial<Record<SoundEvent, boolean>>>({});
+  const [pack, setPack] = useState(false);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    void sound.detect().then(() => setFound({ ...sound.found }));
+    void speech.detectPack().then(setPack);
+    const load = () => setVoices(speech.voices());
+    load();
+    if (speech.supported) window.speechSynthesis.addEventListener?.("voiceschanged", load);
+    return () => {
+      if (speech.supported) window.speechSynthesis.removeEventListener?.("voiceschanged", load);
+    };
+  }, [open]);
+
+  const customCount = Object.values(found).filter(Boolean).length;
+  const test = () =>
+    void speech.announce({ kind: "turn", scored: 100, remaining: 121, player: "Kasia", nextName: "Tomek", nextScore: 301 }, true);
+
+  return (
+    <>
+      <div>
+        <SectionLabel>Dźwięki</SectionLabel>
+        <div className="rounded-xl border border-line bg-surface2 px-4">
+          <Row label="Dźwięki" desc="Sygnały przy rzutach">
+            <Switch checked={s.sound} onChange={(v) => set((x) => ({ ...x, sound: v }))} label="Dźwięki" />
+          </Row>
+          <Row label="Głośność">
+            <Slider value={Math.round(s.volume * 100)} onChange={(v) => set((x) => ({ ...x, volume: v / 100 }))} label="Głośność dźwięków" />
+          </Row>
+          <div className="py-3">
+            <div className="mb-2 text-xs text-muted">
+              {customCount > 0
+                ? `Własne dźwięki z repozytorium: ${customCount} z ${SOUND_EVENTS.length}. Brakujące grają domyślnie.`
+                : "Domyślne sygnały. Własne dźwięki wrzuca się do folderu public/sounds w repozytorium (instrukcja w README)."}
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {SOUND_EVENTS.map((e) => (
+                <button
+                  key={e.id}
+                  onClick={() => sound.play(e.id, true)}
+                  className={cn(
+                    "flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs",
+                    found[e.id] ? "border-accent/60 bg-accent/10 text-accent" : "border-line bg-surface text-muted",
+                  )}
+                  title={found[e.id] ? "Własny plik" : "Domyślny sygnał"}
+                >
+                  <Play className="h-3 w-3" /> {e.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <SectionLabel>Lektor</SectionLabel>
+        <div className="rounded-xl border border-line bg-surface2 px-4">
+          <Row label="Lektor" desc="Czyta wynik po każdej kolejce">
+            <Switch checked={s.speech} onChange={(v) => set((x) => ({ ...x, speech: v }))} label="Lektor" />
+          </Row>
+          <Row label="Głośność lektora">
+            <Slider value={Math.round(s.speechVolume * 100)} onChange={(v) => set((x) => ({ ...x, speechVolume: v / 100 }))} label="Głośność lektora" />
+          </Row>
+          {pack ? (
+            <>
+              <Row label="Nagrany lektor" desc="Znaleziony w repozytorium — wszyscy słyszą ten sam głos">
+                <Switch checked={s.usePack} onChange={(v) => set((x) => ({ ...x, usePack: v }))} label="Nagrany lektor" />
+              </Row>
+              <Row label="Mów, ile zostało" desc="„Sto… zostaje sto dwadzieścia jeden” (do 180)">
+                <Switch checked={s.callRemaining} onChange={(v) => set((x) => ({ ...x, callRemaining: v }))} label="Mów, ile zostało" />
+              </Row>
+            </>
+          ) : (
+            <p className="border-b border-line/60 py-3 text-xs text-muted">
+              Brak nagranego lektora — mówi głos telefonu. Nagrania wrzuca się do folderu public/voice w repozytorium (instrukcja w README).
+            </p>
+          )}
+          {(!pack || !s.usePack) && (
+            <>
+              <div className="border-b border-line/60 py-3">
+                <div className="mb-1.5 text-sm font-medium">Głos telefonu</div>
+                {voices.length === 0 ? (
+                  <div className="text-xs text-muted">Ta przeglądarka nie ma głosów do czytania.</div>
+                ) : (
+                  <select
+                    value={s.voiceURI ?? ""}
+                    onChange={(e) => set((x) => ({ ...x, voiceURI: e.target.value || null }))}
+                    className="h-10 w-full rounded-lg border border-line bg-surface px-2 text-sm"
+                    aria-label="Głos lektora"
+                  >
+                    <option value="">Automatycznie (najlepszy polski)</option>
+                    {voices.map((v) => (
+                      <option key={v.voiceURI} value={v.voiceURI}>
+                        {v.name} ({v.lang})
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <div className="mt-1 text-[11px] text-muted">
+                  Najładniej brzmią głosy z dopiskiem „Natural” lub „Online” (np. w Edge). Na Androidzie lepszy polski głos
+                  można pobrać w Ustawienia → Zamiana tekstu na mowę.
+                </div>
+              </div>
+              <Row label="Szybkość mowy">
+                <Slider value={Math.round(s.speechRate * 100)} min={70} max={150} onChange={(v) => set((x) => ({ ...x, speechRate: v / 100 }))} label="Szybkość mowy" />
+              </Row>
+              <Row label="Zapowiadaj następnego" desc="„Teraz Tomek, 301”">
+                <Switch checked={s.announceNext} onChange={(v) => set((x) => ({ ...x, announceNext: v }))} label="Zapowiadaj następnego" />
+              </Row>
+            </>
+          )}
+          <div className="py-3">
+            <Button size="sm" onClick={test}>
+              <Volume2 className="h-4 w-4" /> Posłuchaj lektora
+            </Button>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
