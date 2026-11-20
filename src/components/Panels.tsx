@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Download, Play, Trash2, Trophy, Upload, Volume2 } from "lucide-react";
+import { Download, Flag, Play, Trash2, Trophy, Upload, Volume2 } from "lucide-react";
 import { SOUND_EVENTS, sound, type SoundEvent } from "../lib/audio";
 import { DART_NAMINGS, DEFAULT_VOICE_STYLES, VOICE_RANGES, VOICE_STYLES, speech, type BullName, type DartNaming, type RangeKey, type VoiceStyle } from "../lib/speech";
-import { describeSettings, replay } from "../engine/game";
+import { describeSettings, replay, resumeEarly } from "../engine/game";
 import { careerStats, gameStats, type CareerStats, type StatsFilter } from "../engine/stats";
 import type { Game } from "../engine/types";
 import { sanitize, type AppStore } from "../lib/store";
@@ -33,8 +33,17 @@ export function HistoryPanel({ store, open, onClose }: { store: AppStore; open: 
               <li key={g.id} className="flex items-center gap-2 rounded-xl border border-line bg-surface2 p-3">
                 <button className="min-w-0 flex-1 text-left" onClick={() => setDetail(g)}>
                   <div className="flex items-center gap-1.5 font-semibold">
-                    <Trophy className="h-4 w-4 shrink-0 text-accent" />
-                    <span className="truncate">{winner?.name ?? "—"}</span>
+                    {g.endedEarly ? (
+                      <>
+                        <Flag className="h-4 w-4 shrink-0 text-muted" />
+                        <span className="truncate text-muted">Niedokończony</span>
+                      </>
+                    ) : (
+                      <>
+                        <Trophy className="h-4 w-4 shrink-0 text-accent" />
+                        <span className="truncate">{winner?.name ?? "—"}</span>
+                      </>
+                    )}
                   </div>
                   <div className="truncate text-xs text-muted">
                     {g.players.map((p) => `${p.name} ${v.legWins[p.id]}`).join(" · ")}
@@ -58,6 +67,25 @@ export function HistoryPanel({ store, open, onClose }: { store: AppStore; open: 
 
       <Modal open={!!detail} onClose={() => setDetail(null)} title="Szczegóły meczu">
         {detail && <GameDetail game={detail} />}
+        {detail?.endedEarly && (
+          <div className="mt-3">
+            {store.data.activeGame && !store.data.activeGame.finishedAt ? (
+              <p className="text-xs text-muted">Żeby dokończyć ten mecz, najpierw zakończ albo porzuć obecny mecz.</p>
+            ) : (
+              <Button
+                variant="accent"
+                className="w-full"
+                onClick={() => {
+                  store.setGame(resumeEarly(detail));
+                  setDetail(null);
+                  onClose();
+                }}
+              >
+                <Play className="h-4 w-4" /> Dokończ ten mecz
+              </Button>
+            )}
+          </div>
+        )}
       </Modal>
 
       <ConfirmDialog
@@ -84,6 +112,7 @@ function GameDetail({ game }: { game: Game }) {
       <div className="text-sm text-muted">
         {fmtDate(game.finishedAt ?? game.createdAt)} · {describeSettings(game.settings)} ·{" "}
         {pl(view.legs.length, "leg", "legi", "legów")}
+        {game.endedEarly && " · zakończony przed czasem"}
       </div>
       {game.players.map((p) => (
         <div key={p.id} className="rounded-lg border border-line bg-surface2 p-2">
@@ -93,6 +122,11 @@ function GameDetail({ game }: { game: Game }) {
             </span>
             <span className="font-score text-xl text-accent">{view.legWins[p.id]}</span>
           </div>
+          {game.endedEarly && (
+            <div className="mb-1.5 text-xs text-muted">
+              Zostało: <b className="font-mono text-fg">{view.legs[view.currentLegIndex].scores[p.id]}</b>
+            </div>
+          )}
           <StatGrid s={stats[p.id]} />
         </div>
       ))}
@@ -102,7 +136,8 @@ function GameDetail({ game }: { game: Game }) {
 
 // ---------------------------------------------------------------- statystyki
 
-type SortKey = "avg" | "wins" | "winPct" | "first9Avg" | "highestCheckout" | "c180" | "checkoutPct" | "bestLeg";
+type SortKey =
+  | "avg" | "wins" | "winPct" | "first9Avg" | "highestCheckout" | "c180" | "checkoutPct" | "doublePct" | "bestLeg" | "dartsPerLeg" | "stuckOnFinish";
 
 const SORTS: { key: SortKey; label: string }[] = [
   { key: "avg", label: "Średnia" },
@@ -112,12 +147,17 @@ const SORTS: { key: SortKey; label: string }[] = [
   { key: "highestCheckout", label: "Najw. checkout" },
   { key: "c180", label: "180" },
   { key: "checkoutPct", label: "Checkout %" },
+  { key: "doublePct", label: "Double % (lotki)" },
   { key: "bestLeg", label: "Najlepszy leg" },
+  { key: "dartsPerLeg", label: "Lotek na leg" },
+  { key: "stuckOnFinish", label: "Utknięcia na double" },
 ];
 
 function sortVal(c: CareerStats, k: SortKey): number {
   if (k === "bestLeg") return c.bestLeg ? -c.bestLeg : -Infinity;
+  if (k === "dartsPerLeg") return c.dartsPerLeg ? -c.dartsPerLeg : -Infinity;
   if (k === "checkoutPct") return c.checkoutPct ?? -1;
+  if (k === "doublePct") return c.doublePct ?? -1;
   return c[k];
 }
 
@@ -137,6 +177,8 @@ export function StatsPanel({ store, open, onClose }: { store: AppStore; open: bo
     { title: "Najwyższy checkout", c: pick((c) => c.highestCheckout), v: (c: CareerStats) => String(c.highestCheckout) },
     { title: "Najkrótszy leg", c: pick((c) => c.bestLeg, true), v: (c: CareerStats) => pl(c.bestLeg, "lotka", "lotki", "lotek") },
     { title: "Najwięcej 180", c: pick((c) => c.c180), v: (c: CareerStats) => String(c.c180) },
+    { title: "Najlepszy na double", c: pick((c) => (c.dartsAtDouble >= 10 ? c.doublePct ?? 0 : 0)), v: (c: CareerStats) => `${Math.round(c.doublePct ?? 0)}%` },
+    { title: "Najwięcej utknięć", c: pick((c) => c.stuckOnFinish), v: (c: CareerStats) => String(c.stuckOnFinish) },
   ];
   const sel = all.find((c) => c.key === selected) ?? null;
 
@@ -212,7 +254,8 @@ export function StatsPanel({ store, open, onClose }: { store: AppStore; open: bo
                       <th className="px-1 text-right">W%</th>
                       <th className="px-1 text-right">Śr.</th>
                       <th className="px-1 text-right">180</th>
-                      <th className="px-2 text-right">CO%</th>
+                      <th className="px-1 text-right">CO%</th>
+                      <th className="px-2 text-right">D%</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line">
@@ -231,13 +274,16 @@ export function StatsPanel({ store, open, onClose }: { store: AppStore; open: bo
                         <td className="px-1 text-right">{Math.round(c.winPct)}%</td>
                         <td className="px-1 text-right">{fmtNum(c.avg)}</td>
                         <td className="px-1 text-right">{c.c180}</td>
-                        <td className="px-2 text-right">{c.checkoutPct === null ? "—" : `${Math.round(c.checkoutPct)}%`}</td>
+                        <td className="px-1 text-right">{c.checkoutPct === null ? "—" : `${Math.round(c.checkoutPct)}%`}</td>
+                        <td className="px-2 text-right">{c.doublePct === null ? "—" : `${Math.round(c.doublePct)}%`}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <p className="mt-1 text-[11px] text-muted">Stuknij gracza, żeby zobaczyć szczegóły i heatmapę.</p>
+              <p className="mt-1 text-[11px] text-muted">
+                CO% — kolejki zakończone checkoutem, D% — lotki trafione na double. Stuknij gracza, żeby zobaczyć szczegóły.
+              </p>
             </div>
 
             {sel && <PlayerDetail c={sel} />}
@@ -262,10 +308,12 @@ function PlayerDetail({ c }: { c: CareerStats }) {
         {c.name}
       </div>
       <div className="text-xs text-muted">
-        {pl(c.matches, "mecz", "mecze", "meczów")} · {pl(c.wins, "wygrana", "wygrane", "wygranych")} · legi {c.legsWon}/{c.legsPlayed} ·{" "}
-        {pl(c.dartsThrown, "lotka", "lotki", "lotek")}
+        {pl(c.matches, "mecz", "mecze", "meczów")} · {pl(c.wins, "wygrana", "wygrane", "wygranych")}
+        {c.unfinished > 0 && ` · ${pl(c.unfinished, "niedokończony", "niedokończone", "niedokończonych")}`} · legi {c.legsWon}/
+        {c.legsPlayed} · {pl(c.dartsThrown, "lotka", "lotki", "lotek")}
       </div>
       <StatGrid s={c} />
+      <FinishingStats s={c} />
       {form.length > 1 && (
         <div>
           <SectionLabel>Forma (średnia w ostatnich meczach)</SectionLabel>
@@ -304,6 +352,62 @@ function PlayerDetail({ c }: { c: CareerStats }) {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function topEntries(r: Record<string, number>, n: number) {
+  return Object.entries(r)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, n);
+}
+
+function FinishingStats({ s }: { s: CareerStats }) {
+  const finishes = topEntries(s.finishes, 5);
+  const stuck = topEntries(s.stuckScores, 5);
+  const cells: [string, string][] = [
+    ["Lotki na double (trafione)", s.dartsAtDouble ? `${s.doubleHits}/${s.dartsAtDouble}` : "—"],
+    ["Kolejek na zamknięcie", s.visitsPerCheckout === null ? "—" : fmtNum(s.visitsPerCheckout, 1)],
+    ["Checkouty 100+", String(s.checkouts100)],
+    ["Niedokończone mecze", String(s.unfinished)],
+    ["Przerwane legi", String(s.legsUnfinished)],
+    ["Utknięcia na double", String(s.stuckOnFinish)],
+  ];
+  return (
+    <div>
+      <SectionLabel>Zakończenia</SectionLabel>
+      <div className="grid grid-cols-3 gap-1.5">
+        {cells.map(([l, v]) => (
+          <div key={l} className="rounded-md bg-surface px-1 py-1.5 text-center">
+            <div className="font-mono text-sm font-bold">{v}</div>
+            <div className="text-[9px] uppercase leading-tight tracking-wide text-muted">{l}</div>
+          </div>
+        ))}
+      </div>
+      {finishes.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+          <span className="text-muted">Zamyka na:</span>
+          {finishes.map(([k, v]) => (
+            <span key={k} className="rounded-md bg-accent/15 px-2 py-0.5 font-mono text-accent">
+              {k} ×{v}
+            </span>
+          ))}
+        </div>
+      )}
+      {stuck.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
+          <span className="text-muted">Utyka na:</span>
+          {stuck.map(([k, v]) => (
+            <span key={k} className="rounded-md bg-warn/15 px-2 py-0.5 font-mono text-warn">
+              {k} ×{v}
+            </span>
+          ))}
+        </div>
+      )}
+      <p className="mt-1.5 text-[10px] text-muted">
+        Lotki na double liczą się dokładnie przy wpisywaniu z tarczy lub pól; przy wpisywaniu sum — tylko gdy zostało do zamknięcia
+        jedną lotką.
+      </p>
     </div>
   );
 }

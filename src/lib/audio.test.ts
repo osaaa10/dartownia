@@ -38,3 +38,16 @@ describe("nicki lektora", () => {
     expect(nickSlug("Łukasz Żółć")).toBe("lukaszzolc");
   });
 });
+
+import { similarNick } from "./speech";
+
+describe("literówki w nickach", () => {
+  const rec = ["Pitek", "Osa", "KMP", "Parzy", "Oleś", "Dawid", "Podczar"];
+  it("podpowiada nagrany nick", () => {
+    expect(similarNick("Pitke", rec)).toBe("Pitek");
+    expect(similarNick("Podczr", rec)).toBe("Podczar");
+    expect(similarNick("Oles", rec)).toBeNull(); // to ten sam nick (bez ogonka) — już działa
+    expect(similarNick("Osa", rec)).toBeNull();
+    expect(similarNick("Kasia", rec)).toBeNull();
+  });
+});

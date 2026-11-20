@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { BarChart3, Download, History, Settings } from "lucide-react";
-import { uid } from "./engine/game";
+import { endEarly, uid } from "./engine/game";
 import { PLAYER_COLORS } from "./engine/game";
 import type { MatchSettings, Player } from "./engine/types";
 import { sound } from "./lib/audio";
@@ -178,6 +178,10 @@ export default function App() {
                   game={game}
                   onContinue={() => setPlaying(true)}
                   onDiscard={() => store.setGame(null)}
+                  onEndEarly={() => {
+                    store.setGame(endEarly(game));
+                    notify("Mecz zapisany w historii i statystykach", "good");
+                  }}
                 />
               )}
 

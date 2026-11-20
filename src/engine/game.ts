@@ -189,6 +189,20 @@ function withFinish(game: Game): Game {
   return next;
 }
 
+/** Kończy mecz przed czasem: zostaje w historii i statystykach, bez zwycięzcy. */
+export function endEarly(game: Game, at = Date.now()): Game {
+  if (replay(game).finished || game.turns.length === 0) return game;
+  return { ...game, finishedAt: at, endedEarly: true };
+}
+
+/** Wznawia mecz zakończony przed czasem. */
+export function resumeEarly(game: Game): Game {
+  const next: Game = { ...game };
+  delete next.finishedAt;
+  delete next.endedEarly;
+  return next;
+}
+
 export function addTurn(game: Game, input: TurnInput): Game {
   if (replay(game).finished) return game;
   return withFinish({ ...game, turns: [...game.turns, input] });
