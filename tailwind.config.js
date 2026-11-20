@@ -34,10 +34,18 @@ export default {
           "40%": { transform: "scale(1.04)" },
           "100%": { transform: "scale(1)" },
         },
+        max180: {
+          "0%": { transform: "scale(0.2) rotate(-12deg)", opacity: "0" },
+          "25%": { transform: "scale(1.25) rotate(4deg)", opacity: "1" },
+          "45%": { transform: "scale(1) rotate(0deg)", opacity: "1" },
+          "80%": { transform: "scale(1.05)", opacity: "1" },
+          "100%": { transform: "scale(1.6)", opacity: "0" },
+        },
       },
       animation: {
         shake: "shake 0.4s ease-in-out",
         pop: "pop 0.6s ease-out",
+        max180: "max180 1.8s ease-out forwards",
       },
     },
   },

@@ -41,3 +41,14 @@ Wskazówki:
   Nie wrzucaj nagrań z transmisji telewizyjnych.
 - Po wgraniu plików odczekaj, aż w zakładce **Actions** pojawi się zielony ✓, i odśwież aplikację.
   W **Ustawienia → Dźwięki** podświetlą się te, które aplikacja znalazła; możesz je tam odsłuchać.
+
+## Obecne dźwięki
+
+Wygenerowane w ElevenLabs (efekty dźwiękowe, płatny plan):
+
+- `leg.mp3` – oklaski po wygranym legu
+- `match.mp3` – hala, oklaski i fanfara po wygranym meczu
+- `180.mp3` – ogromny aplauz przy 180 (przycięty do 5,5 s)
+- `stuck.mp3` – smutna trąbka, gdy ktoś znowu nie trafi double na zakończenie
+
+Pozostałe zdarzenia grają krótkie wbudowane sygnały.

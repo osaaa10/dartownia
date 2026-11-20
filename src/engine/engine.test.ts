@@ -10,7 +10,7 @@ import {
   suggestCheckout,
 } from "./darts";
 import { addTurn, createGame, endEarly, evaluateTurn, legsNeeded, rematch, replaceLastTurn, replay, resumeEarly, undoTurn } from "./game";
-import { careerStats, gameStats } from "./stats";
+import { careerStats, failedFinishStreak, gameStats } from "./stats";
 import type { Game, MatchSettings, Player, TurnInput } from "./types";
 
 const P = (id: string): Player => ({ id, name: id.toUpperCase(), color: "0 0% 50%" });
@@ -252,5 +252,25 @@ describe("statystyki zakończeń", () => {
     expect(a.unfinished).toBe(1);
     expect(a.wins).toBe(0);
     expect(resumeEarly(e).finishedAt).toBeUndefined();
+  });
+});
+
+describe("trąbka na zakończeniu", () => {
+  it("liczy nieudane kolejki z rzędu na zakończeniu", () => {
+    let g = createGame([P("a"), P("b")], S({ startingScore: 301 }));
+    g = play(g, t(180), t(0), t(81), t(0)); // a: 40
+    const streak = () => {
+      const v = replay(g);
+      const last = [...v.turns].reverse().find((x) => x.playerId === "a")!;
+      return failedFinishStreak(v, last, "double");
+    };
+    g = play(g, d("S20", "S10", "S2")); // 40 → 8, nie zamknął (1)
+    expect(streak()).toBe(1);
+    g = play(g, t(0), d("MISS", "MISS", "MISS")); // 8, nie zamknął (2)
+    expect(streak()).toBe(2);
+    g = play(g, t(0), d("S4", "S2", "MISS")); // 8 → 2 (3) — tu gra trąbka
+    expect(streak()).toBe(3);
+    g = play(g, t(0), d("D1")); // zamknął
+    expect(streak()).toBe(0);
   });
 });

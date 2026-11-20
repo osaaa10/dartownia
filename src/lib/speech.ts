@@ -5,7 +5,7 @@
 //    Nicki graczy: public/voice/names/<nick bez polskich znaków, małymi literami>.mp3.
 // 2. Głos telefonu (Web Speech API): gdy nagrań brak albo brakuje konkretnej liczby.
 
-import { audioCtx, loadClip } from "./audio";
+import { audioCtx, loadClip, setSpeaking } from "./audio";
 
 export const VOICE_STYLES = [
   { id: "calm", label: "Spokojny" },
@@ -124,7 +124,10 @@ class Speech {
   callToGo = true;
   /** Sugerowane zakończenie dla następnego gracza. */
   callCheckout = true;
-  dartNaming: DartNaming = "potrojne";
+  dartNaming: DartNaming = "tede";
+  /** Style, dla których lotki są nagrane w całości (np. „te dwadzieścia” jednym plikiem). */
+  wholeDarts = new Set<DartNaming>();
+  wholeSingles = false;
   bullName: BullName = "bull";
   /** „Bust!” */
   callBust = true;
@@ -187,6 +190,10 @@ class Speech {
         this.phraseVariants[p] = n;
       }),
     );
+    // Całe nazwy lotek nagrane jednym tonem: voice/darts/<styl>/T20.mp3, voice/darts/single/20.mp3.
+    const whole = await Promise.all(DART_NAMINGS.map(async (d) => ((await loadClip(`voice/darts/${d.id}/T20.mp3`)) ? d.id : null)));
+    this.wholeDarts = new Set(whole.filter((x): x is DartNaming => !!x));
+    this.wholeSingles = !!(await loadClip("voice/darts/single/20.mp3"));
     this.packFound = this.flat || Object.values(avail).some((a) => a.length > 0);
     if (this.packFound) this.preload();
     return this.packFound;
@@ -267,14 +274,19 @@ class Speech {
     }
     this.sources = [];
     if (this.supported) window.speechSynthesis.cancel();
+    setSpeaking(false);
   }
 
   /** Mówi tekst głosem telefonu; obietnica kończy się po przeczytaniu (najpóźniej po 6 s). */
   say(text: string, force = false): Promise<void> {
     if ((!this.enabled && !force) || !this.supported) return Promise.resolve();
     this.stop();
+    setSpeaking(true);
     return new Promise((resolve) => {
-      const done = () => resolve();
+      const done = () => {
+        setSpeaking(false);
+        resolve();
+      };
       window.setTimeout(done, 6000);
       try {
         const u = new SpeechSynthesisUtterance(text);
@@ -302,6 +314,7 @@ class Speech {
     const mine = this.token;
     const c = audioCtx();
     if (!c) return false;
+    setSpeaking(true);
     for (const b of bufs) {
       if (mine !== this.token) return true;
       await new Promise<void>((resolve) => {
@@ -315,6 +328,7 @@ class Speech {
         src.start();
       });
     }
+    if (mine === this.token) setSpeaking(false);
     return true;
   }
 
@@ -324,9 +338,14 @@ class Speech {
       const b = this.phrase(this.bullName) ?? this.phrase("bull");
       return b ? [b] : null;
     }
+    const num = Number(label.replace(/^[SDT]/, ""));
+    if (label.startsWith("T") || label.startsWith("D")) {
+      if (this.wholeDarts.has(this.dartNaming)) return [`darts/${this.dartNaming}/${label}`];
+    } else if (this.wholeSingles && Number.isFinite(num) && num > 0) {
+      return [`darts/single/${num}`];
+    }
     const nm = DART_NAMINGS.find((d) => d.id === this.dartNaming) ?? DART_NAMINGS[0];
     const prefix = label.startsWith("T") ? this.phrase(nm.treble) : label.startsWith("D") ? this.phrase(nm.double) : "";
-    const num = Number(label.replace(/^[SDT]/, ""));
     const n = Number.isFinite(num) && num > 0 ? this.pathFor(num, "remaining") : null;
     if (prefix === null || !n) return null;
     return prefix ? [prefix, n] : [n];

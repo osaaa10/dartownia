@@ -15,6 +15,9 @@ describe("zapowiedź lektora", () => {
     speech.enabled = true;
     for (const k of Object.keys(speech.available)) (speech.available as Record<string, string[]>)[k] = ["calm", "confident", "energetic", "enthusiastic", "ecstatic"];
     for (const k of Object.keys(speech.phraseVariants)) (speech.phraseVariants as Record<string, number>)[k] = 1;
+    speech.dartNaming = "potrojne";
+    speech.wholeDarts = new Set();
+    speech.wholeSingles = false;
     return () => played;
   };
 
@@ -44,5 +47,15 @@ describe("zapowiedź lektora", () => {
     speech.bullName = "bullseye";
     await speech.announce({ kind: "turn", scored: 3, remaining: 50, player: "Osa", nextName: "KMP", nextScore: 100, nextCheckout: ["T20", "BULL"] });
     expect(played().slice(-4)).toEqual(["zakonczenie", "te", "calm/20", "bullseye"]);
+  });
+
+  it("całe nazwy lotek nagrane jednym tonem", async () => {
+    const played = setup();
+    speech.dartNaming = "tede";
+    speech.bullName = "bull";
+    speech.wholeDarts = new Set(["tede"]);
+    speech.wholeSingles = true;
+    await speech.announce({ kind: "turn", scored: 3, remaining: 50, player: "Osa", nextName: "KMP", nextScore: 99, nextCheckout: ["T19", "S10", "D16"] });
+    expect(played().slice(-4)).toEqual(["zakonczenie", "darts/tede/T19", "darts/single/10", "darts/tede/D16"]);
   });
 });
