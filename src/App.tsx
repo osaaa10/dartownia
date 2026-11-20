@@ -78,6 +78,8 @@ export default function App() {
   useEffect(() => {
     void sound.detect();
     void speech.detectPack();
+    // Prośba o trwały zapis: przeglądarka nie usunie wtedy danych sama przy braku miejsca.
+    void navigator.storage?.persist?.().catch(() => false);
   }, []);
 
   useEffect(() => {
