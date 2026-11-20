@@ -5,7 +5,7 @@
 //    Nicki graczy: public/voice/names/<nick bez polskich znaków, małymi literami>.mp3.
 // 2. Głos telefonu (Web Speech API): gdy nagrań brak albo brakuje konkretnej liczby.
 
-import { audioCtx, loadClip } from "./audio";
+import { audioCtx, loadClip, setSpeaking } from "./audio";
 
 export const VOICE_STYLES = [
   { id: "calm", label: "Spokojny" },
@@ -274,14 +274,19 @@ class Speech {
     }
     this.sources = [];
     if (this.supported) window.speechSynthesis.cancel();
+    setSpeaking(false);
   }
 
   /** Mówi tekst głosem telefonu; obietnica kończy się po przeczytaniu (najpóźniej po 6 s). */
   say(text: string, force = false): Promise<void> {
     if ((!this.enabled && !force) || !this.supported) return Promise.resolve();
     this.stop();
+    setSpeaking(true);
     return new Promise((resolve) => {
-      const done = () => resolve();
+      const done = () => {
+        setSpeaking(false);
+        resolve();
+      };
       window.setTimeout(done, 6000);
       try {
         const u = new SpeechSynthesisUtterance(text);
@@ -309,6 +314,7 @@ class Speech {
     const mine = this.token;
     const c = audioCtx();
     if (!c) return false;
+    setSpeaking(true);
     for (const b of bufs) {
       if (mine !== this.token) return true;
       await new Promise<void>((resolve) => {
@@ -322,6 +328,7 @@ class Speech {
         src.start();
       });
     }
+    if (mine === this.token) setSpeaking(false);
     return true;
   }
 

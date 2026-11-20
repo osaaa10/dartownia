@@ -8,6 +8,7 @@ export const SOUND_EVENTS = [
   { id: "ton40", label: "140+" },
   { id: "180", label: "180" },
   { id: "bust", label: "Bust" },
+  { id: "stuck", label: "Znowu nie zamknął (na double)" },
   { id: "leg", label: "Wygrany leg" },
   { id: "match", label: "Wygrany mecz" },
 ] as const;
@@ -65,19 +66,36 @@ export function loadClip(path: string): Promise<AudioBuffer | null> {
   return p;
 }
 
+const effects = new Set<GainNode>();
+const DUCK = 0.35;
+let speaking = false;
+
 /** Odtwarza bufor; zwraca obietnicę zakończenia (do składania zapowiedzi). */
-export function playBuffer(buf: AudioBuffer, volume: number): Promise<void> {
+export function playBuffer(buf: AudioBuffer, volume: number, duckable = false): Promise<void> {
   const c = audioCtx();
   if (!c) return Promise.resolve();
   return new Promise((resolve) => {
     const src = c.createBufferSource();
     const g = c.createGain();
-    g.gain.value = volume;
+    g.gain.value = duckable && speaking ? volume * DUCK : volume;
     src.buffer = buf;
     src.connect(g).connect(c.destination);
-    src.onended = () => resolve();
+    if (duckable) effects.add(g);
+    src.onended = () => {
+      effects.delete(g);
+      resolve();
+    };
     src.start();
   });
+}
+
+/** Lektor mówi: efekty grają ciszej, żeby go nie zagłuszały. */
+export function setSpeaking(on: boolean) {
+  if (on === speaking) return;
+  speaking = on;
+  const c = audioCtx();
+  if (!c) return;
+  for (const g of effects) g.gain.setTargetAtTime(on ? g.gain.value * DUCK : g.gain.value / DUCK, c.currentTime, 0.08);
 }
 
 /** Ile wariantów jednego dźwięku sprawdzamy (180.mp3, 180-2.mp3 … 180-5.mp3). */
@@ -186,6 +204,7 @@ class Sound {
       case "ton40": this.tone(720, 0.08); this.tone(900, 0.08, "sine", 1, 0.08); return this.tone(1100, 0.13, "sine", 1, 0.16);
       case "180": return [600, 800, 1000, 1300].forEach((f, i) => this.tone(f, 0.12, "triangle", 1.1, i * 0.09));
       case "bust": this.tone(180, 0.18, "sawtooth", 0.8); return this.tone(120, 0.22, "sawtooth", 0.8, 0.08);
+      case "stuck": this.builtinSurprise(2); return;
       case "leg": return [520, 660, 880].forEach((f, i) => this.tone(f, 0.15, "triangle", 1, i * 0.11));
       case "match": return [523, 659, 784, 1046, 784, 1046, 1318].forEach((f, i) => this.tone(f, 0.18, "triangle", 1.2, i * 0.13));
     }
@@ -223,7 +242,7 @@ class Sound {
     if ((!this.enabled && !force) || this.volume <= 0) return;
     const n = this.variants[e] ?? 0;
     if (n > 0) {
-      void loadClip(variantPath(e, this.pick(e, n))).then((b) => (b ? playBuffer(b, this.volume) : this.beep(e)));
+      void loadClip(variantPath(e, this.pick(e, n))).then((b) => (b ? playBuffer(b, this.volume, true) : this.beep(e)));
     } else {
       this.beep(e);
     }

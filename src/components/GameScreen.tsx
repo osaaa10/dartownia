@@ -15,7 +15,7 @@ import {
   Trophy,
   Undo2,
 } from "lucide-react";
-import { displayLabel, finishHint, suggestCheckout } from "../engine/darts";
+import { canFinish, displayLabel, finishHint, suggestCheckout } from "../engine/darts";
 import { addTurn, describeSettings, legsNeeded, rematch, renamePlayer, replay, setPlayerDoubles, undoTurn } from "../engine/game";
 import { gameStats, legAverage, type PlayerStats } from "../engine/stats";
 import type { Game, GameView, InputMode, TurnInput } from "../engine/types";
@@ -118,7 +118,23 @@ export function GameScreen({ store, game, onPause, onNewGame, onOpenSettings, no
       nextCheckout: nextHint?.kind === "checkout" ? nextHint.route : undefined,
     };
 
-    if (t.isBust) {
+    // Znowu nie zamknął: już tylko double do trafienia, a poprzednie podejście do zakończenia też nie wyszło.
+    const out = game.settings.outMode;
+    const mine = nv.legs[t.legIndex].turns.filter((x) => x.playerId === t.playerId);
+    const prev = mine[mine.length - 2];
+    const stuck =
+      !t.isCheckout &&
+      out !== "single" &&
+      canFinish(t.scoreBefore, out, 1) &&
+      !!prev &&
+      !prev.isCheckout &&
+      canFinish(prev.scoreBefore, out, 3);
+
+    if (stuck) {
+      sound.play("stuck");
+      if (t.isBust) setFlash("bust");
+      void speech.announce({ ...base, kind: t.isBust ? "bust" : "turn" });
+    } else if (t.isBust) {
       sound.play("bust");
       setFlash("bust");
       notify(`Bust — ${who.name}`, "bad");
@@ -134,6 +150,7 @@ export function GameScreen({ store, game, onPause, onNewGame, onOpenSettings, no
       if (t.scored === 180) {
         sound.play("180");
         setFlash("max");
+        celebrate180(who.color);
         notify(`180! ${who.name}`, "good");
         void speech.announce({ ...base, kind: "turn" });
         return;
@@ -158,7 +175,7 @@ export function GameScreen({ store, game, onPause, onNewGame, onOpenSettings, no
 
   useEffect(() => {
     if (!flash) return;
-    const id = window.setTimeout(() => setFlash(null), 650);
+    const id = window.setTimeout(() => setFlash(null), flash === "max" ? 1800 : 650);
     return () => window.clearTimeout(id);
   }, [flash]);
 
@@ -182,7 +199,14 @@ export function GameScreen({ store, game, onPause, onNewGame, onOpenSettings, no
   const needed = legsNeeded(game.settings);
 
   return (
-    <div className={cn("space-y-3", flash === "bust" && "animate-shake", flash === "max" && "animate-pop")}>
+    <div className={cn("space-y-3", flash === "bust" && "animate-shake")}>
+      {flash === "max" && (
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center" aria-hidden>
+          <div className="animate-max180 font-score text-[9rem] leading-none text-accent drop-shadow-[0_0_30px_rgba(249,115,22,0.8)]">
+            180
+          </div>
+        </div>
+      )}
       {/* Pasek górny */}
       <div className="flex items-center gap-1">
         <Button variant="ghost" size="sm" onClick={onPause} aria-label="Pauza — wróć do menu">
@@ -452,6 +476,21 @@ export function StatGrid({ s }: { s: PlayerStats }) {
       ))}
     </div>
   );
+}
+
+/** Wybuch konfetti przy 180: z obu boków i ze środka. */
+function celebrate180(color: string) {
+  const colors = [`hsl(${color})`, "#f97316", "#facc15", "#ffffff"];
+  const shot = (x: number, angle: number) =>
+    confetti({ particleCount: 90, spread: 70, startVelocity: 60, angle, origin: { x, y: 0.7 }, colors, disableForReducedMotion: true });
+  shot(0, 60);
+  shot(1, 120);
+  window.setTimeout(() => confetti({ particleCount: 140, spread: 160, startVelocity: 45, origin: { y: 0.35 }, colors, scalar: 1.2, disableForReducedMotion: true }), 250);
+  try {
+    navigator.vibrate?.([80, 60, 80, 60, 200]);
+  } catch {
+    /* brak wibracji */
+  }
 }
 
 // ---------------------------------------------------------------- koniec meczu
