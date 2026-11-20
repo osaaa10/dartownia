@@ -477,12 +477,18 @@ function AudioSettings({ store, open }: { store: AppStore; open: boolean }) {
   const s = store.data.settings;
   const set = store.setSettings;
   const [found, setFound] = useState<Partial<Record<SoundEvent, boolean>>>({});
+  const [variants, setVariants] = useState<Partial<Record<SoundEvent, number>>>({});
+  const [surprises, setSurprises] = useState(0);
   const [pack, setPack] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
   useEffect(() => {
     if (!open) return;
-    void sound.detect().then(() => setFound({ ...sound.found }));
+    void sound.detect().then(() => {
+      setFound({ ...sound.found });
+      setVariants({ ...sound.variants });
+      setSurprises(sound.surprises);
+    });
     void speech.detectPack().then(setPack);
     const load = () => setVoices(speech.voices());
     load();
@@ -507,6 +513,46 @@ function AudioSettings({ store, open }: { store: AppStore; open: boolean }) {
           <Row label="Głośność">
             <Slider value={Math.round(s.volume * 100)} onChange={(v) => set((x) => ({ ...x, volume: v / 100 }))} label="Głośność dźwięków" />
           </Row>
+          <div className="border-b border-line/60 py-3">
+            <div className="mb-1 text-sm font-medium">Niespodzianka</div>
+            <div className="mb-2 text-xs text-muted">
+              Co któraś zwykła kolejka zamiast lektora zagra coś innego. Która — losowo. 180, busty i końcówki zawsze
+              normalnie.
+            </div>
+            <Segmented
+              value={s.surpriseChance}
+              onChange={(v) => set((x) => ({ ...x, surpriseChance: v }))}
+              cols={4}
+              options={[
+                { value: 0, label: "Wyłącz." },
+                { value: 1 / 3, label: "1 z 3" },
+                { value: 0.2, label: "1 z 5" },
+                { value: 0.1, label: "1 z 10" },
+              ]}
+            />
+            {s.surpriseChance > 0 && (
+              <div className="mt-2">
+                <Segmented
+                  value={s.surpriseMode}
+                  onChange={(v) => set((x) => ({ ...x, surpriseMode: v }))}
+                  options={[
+                    { value: "instead", label: "Zamiast wyniku", desc: "Lektor milczy" },
+                    { value: "after", label: "Po wyniku", desc: "Najpierw wynik" },
+                  ]}
+                />
+              </div>
+            )}
+            <div className="mt-2 flex items-center gap-2">
+              <Button size="sm" onClick={() => void sound.playSurprise(true)}>
+                <Play className="h-3.5 w-3.5" /> Posłuchaj
+              </Button>
+              <span className="text-[11px] text-muted">
+                {surprises > 0
+                  ? `Niespodzianki z repozytorium: ${surprises}`
+                  : "Wbudowane (boing, trąbka, laser). Własne: public/sounds/surprise.mp3"}
+              </span>
+            </div>
+          </div>
           <div className="py-3">
             <div className="mb-2 text-xs text-muted">
               {customCount > 0
@@ -525,6 +571,7 @@ function AudioSettings({ store, open }: { store: AppStore; open: boolean }) {
                   title={found[e.id] ? "Własny plik" : "Domyślny sygnał"}
                 >
                   <Play className="h-3 w-3" /> {e.label}
+                  {(variants[e.id] ?? 0) > 1 && <span className="font-mono text-[10px]">×{variants[e.id]}</span>}
                 </button>
               ))}
             </div>

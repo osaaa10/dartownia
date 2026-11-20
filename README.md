@@ -27,7 +27,9 @@ Zrobiona do grania ze znajomymi: kładziesz telefon przy tarczy, wpisujecie imio
 
 Dźwięki i głos lektora mogą być plikami w repozytorium. Wtedy każdy, kto otworzy aplikację, słyszy to samo.
 
-- **Dźwięki** (180, bust, wygrany leg itd.): pliki mp3 w folderze `public/sounds/`.
+- **Dźwięki** (180, bust, wygrany leg itd.): pliki mp3 w folderze `public/sounds/`. Każdy dźwięk może mieć
+  kilka wersji (`180.mp3`, `180-2.mp3`…), a aplikacja losuje jedną. Pliki `surprise.mp3`, `surprise-2.mp3`… to
+  niespodzianki, które (po włączeniu w ustawieniach) co któraś kolejkę grają zamiast lektora.
   Lista nazw jest w [public/sounds/README.md](public/sounds/README.md).
 - **Nagrany lektor** (liczby 0–180 i kilka zwrotów): pliki mp3 w folderze `public/voice/`.
   Lista i instrukcja nagrywania jest w [public/voice/README.md](public/voice/README.md).

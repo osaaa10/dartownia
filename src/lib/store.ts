@@ -10,6 +10,10 @@ export interface AppSettings {
   theme: "dark" | "light";
   sound: boolean;
   volume: number;
+  /** Jak często po zwykłej kolejce gra niespodzianka: 0 = nigdy, 0.2 = 1 z 5. */
+  surpriseChance: number;
+  /** Niespodzianka gra zamiast odczytania wyniku albo po nim. */
+  surpriseMode: "instead" | "after";
   speech: boolean;
   speechVolume: number;
   /** Lektor zapowiada, kto rzuca następny. */
@@ -47,6 +51,8 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   theme: "dark",
   sound: true,
   volume: 0.5,
+  surpriseChance: 0,
+  surpriseMode: "instead",
   speech: true,
   speechVolume: 0.9,
   announceNext: true,

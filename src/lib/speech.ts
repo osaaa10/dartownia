@@ -80,21 +80,27 @@ class Speech {
     if (this.supported) window.speechSynthesis.cancel();
   }
 
-  /** Mówi tekst głosem telefonu. */
-  say(text: string, force = false) {
-    if ((!this.enabled && !force) || !this.supported) return;
+  /** Mówi tekst głosem telefonu; obietnica kończy się po przeczytaniu (najpóźniej po 6 s). */
+  say(text: string, force = false): Promise<void> {
+    if ((!this.enabled && !force) || !this.supported) return Promise.resolve();
     this.stop();
-    try {
-      const u = new SpeechSynthesisUtterance(text);
-      const v = this.voice();
-      if (v) u.voice = v;
-      u.lang = v?.lang ?? "pl-PL";
-      u.volume = this.volume;
-      u.rate = this.rate;
-      window.speechSynthesis.speak(u);
-    } catch {
-      /* ignoruj */
-    }
+    return new Promise((resolve) => {
+      const done = () => resolve();
+      window.setTimeout(done, 6000);
+      try {
+        const u = new SpeechSynthesisUtterance(text);
+        const v = this.voice();
+        if (v) u.voice = v;
+        u.lang = v?.lang ?? "pl-PL";
+        u.volume = this.volume;
+        u.rate = this.rate;
+        u.onend = done;
+        u.onerror = done;
+        window.speechSynthesis.speak(u);
+      } catch {
+        done();
+      }
+    });
   }
 
   /** Odtwarza po kolei nagrania; jeśli któregoś brakuje — zwraca false (wtedy mówi telefon). */
@@ -142,10 +148,10 @@ class Speech {
     }
 
     const then = this.announceNext && a.nextName ? ` Teraz ${a.nextName}, ${a.nextScore}.` : "";
-    if (a.kind === "bust") this.say(`Bust!${then}`, force);
-    else if (a.kind === "match") this.say(`Checkout ${a.scored}! Mecz wygrywa ${a.player}!`, force);
-    else if (a.kind === "leg") this.say(`Checkout ${a.scored}! Leg wygrywa ${a.player}.${then}`, force);
-    else this.say(`${a.scored === 180 ? "Sto osiemdziesiąt!" : a.scored}. Zostaje ${a.remaining}.${then}`, force);
+    if (a.kind === "bust") return this.say(`Bust!${then}`, force);
+    if (a.kind === "match") return this.say(`Checkout ${a.scored}! Mecz wygrywa ${a.player}!`, force);
+    if (a.kind === "leg") return this.say(`Checkout ${a.scored}! Leg wygrywa ${a.player}.${then}`, force);
+    return this.say(`${a.scored === 180 ? "Sto osiemdziesiąt!" : a.scored}. Zostaje ${a.remaining}.${then}`, force);
   }
 }
 

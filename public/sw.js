@@ -2,7 +2,7 @@
 // Strategia: sieć najpierw dla HTML (żeby dostać nową wersję), cache najpierw dla plików
 // z hashem w nazwie (assets/), a dla reszty (dźwięki, lektor, ikony) — z pamięci,
 // z odświeżeniem w tle, żeby podmienione pliki dźwięków trafiły do wszystkich.
-const CACHE = "kanciapa-dart-v4";
+const CACHE = "kanciapa-dart-v6";
 
 const SOUND_NAMES = ["dart", "turn", "ton", "ton40", "180", "bust", "leg", "match"];
 const VOICE_NAMES = [...Array.from({ length: 181 }, (_, i) => String(i)), "bust", "gameshot", "match", "zostaje"];
@@ -37,7 +37,17 @@ async function precache() {
   }
   await c.addAll([...new Set([...assets, ...extra])]);
   // Własne dźwięki i nagrany lektor (jeśli są w repozytorium).
-  await Promise.all(SOUND_NAMES.map((n) => cacheIfExists(c, `./sounds/${n}.mp3`)));
+  // Każdy dźwięk może mieć warianty: 180.mp3, 180-2.mp3 … 180-5.mp3.
+  await Promise.all(
+    SOUND_NAMES.map(async (n) => {
+      if (!(await cacheIfExists(c, `./sounds/${n}.mp3`))) return;
+      for (let v = 2; v <= 5; v++) if (!(await cacheIfExists(c, `./sounds/${n}-${v}.mp3`))) break;
+    }),
+  );
+  // Niespodzianki: surprise.mp3, surprise-2.mp3 … surprise-10.mp3.
+  if (await cacheIfExists(c, "./sounds/surprise.mp3")) {
+    for (let v = 2; v <= 10; v++) if (!(await cacheIfExists(c, `./sounds/surprise-${v}.mp3`))) break;
+  }
   if (await cacheIfExists(c, "./voice/180.mp3")) {
     for (let i = 0; i < VOICE_NAMES.length; i += 12) {
       await Promise.all(VOICE_NAMES.slice(i, i + 12).map((n) => cacheIfExists(c, `./voice/${n}.mp3`)));

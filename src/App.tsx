@@ -56,6 +56,7 @@ export default function App() {
   useEffect(() => {
     sound.enabled = s.sound;
     sound.volume = s.volume;
+    sound.surpriseChance = s.surpriseChance;
     speech.enabled = s.speech;
     speech.volume = s.speechVolume;
     speech.rate = s.speechRate;
@@ -63,7 +64,7 @@ export default function App() {
     speech.usePack = s.usePack;
     speech.callRemaining = s.callRemaining;
     speech.announceNext = s.announceNext;
-  }, [s.sound, s.volume, s.speech, s.speechVolume, s.speechRate, s.voiceURI, s.usePack, s.callRemaining, s.announceNext]);
+  }, [s.sound, s.volume, s.surpriseChance, s.speech, s.speechVolume, s.speechRate, s.voiceURI, s.usePack, s.callRemaining, s.announceNext]);
 
   // Własne dźwięki i nagrany lektor z repozytorium (public/sounds, public/voice).
   useEffect(() => {
