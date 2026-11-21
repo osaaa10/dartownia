@@ -38,6 +38,16 @@ export interface AppSettings {
   boardConfirm: "double" | "single";
   inputMode: InputMode;
   keepAwake: boolean;
+  /** Skala całego interfejsu (1 = 100%). */
+  uiScale: number;
+  /** Rozmiar przycisków szybkich wyników (26, 41, 60…): 0 mały … 3 ogromny. */
+  presetSize: number;
+  /** Rozmiar klawiatury z cyframi: 0 mała … 3 ogromna. */
+  keypadSize: number;
+  /** Rozmiar wyniku aktywnego gracza: 0 mały … 2 duży. */
+  scoreSize: number;
+  /** Szybki wynik (np. 60) od razu zatwierdza kolejkę. */
+  quickSubmit: boolean;
   lastMatch: MatchSettings;
 }
 
@@ -68,6 +78,11 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   voiceURI: null,
   speechRate: 1.05,
   usePack: true,
+  uiScale: 1,
+  presetSize: 1,
+  keypadSize: 1,
+  scoreSize: 1,
+  quickSubmit: true,
   callRemaining: true,
   callToGo: true,
   callCheckout: true,

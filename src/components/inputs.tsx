@@ -5,6 +5,7 @@ import { makeLabel } from "../engine/darts";
 import type { DartLabel, OutMode, TurnInput } from "../engine/types";
 import { cn, vibrate } from "../lib/util";
 import { Dartboard } from "./Dartboard";
+import { keypadClass, presetClass } from "./SizeSettings";
 import { Button, Modal } from "./ui";
 import { useVisit, type VisitStatus } from "./useVisit";
 
@@ -314,7 +315,15 @@ export function KeypadInput({ scoreBefore, outMode, onCommit, prefs }: InputProp
 
 const PRESETS = [26, 41, 45, 60, 81, 85, 100, 121, 140, 180];
 
-export function NumpadInput({ scoreBefore, outMode, onCommit, prefs }: InputProps) {
+export function NumpadInput({
+  scoreBefore,
+  outMode,
+  onCommit,
+  prefs,
+  presetSize = 1,
+  keypadSize = 1,
+  quickSubmit = false,
+}: InputProps & { presetSize?: number; keypadSize?: number; quickSubmit?: boolean }) {
   const [value, setValue] = useState("");
   const [askFinish, setAskFinish] = useState(false);
   const [askImpossible, setAskImpossible] = useState(false);
@@ -322,17 +331,24 @@ export function NumpadInput({ scoreBefore, outMode, onCommit, prefs }: InputProp
   const after = scoreBefore - num;
   const bust = value !== "" && (after < 0 || (outMode !== "single" && after === 1));
 
-  const submit = (force = false) => {
-    if (value === "" || num > 180) return;
-    if (!force && !isAchievable(num)) {
+  const submit = (force = false, n = num) => {
+    if (n > 180 || (value === "" && n === num)) return;
+    if (!force && !isAchievable(n)) {
       setAskImpossible(true);
       return;
     }
-    if (after === 0) {
+    if (scoreBefore - n === 0) {
       setAskFinish(true);
       return;
     }
-    onCommit({ total: num });
+    onCommit({ total: n });
+  };
+
+  // Szybki wynik: od razu zatwierdza (gdy włączone), a przy zamknięciu pyta jak zwykle.
+  const quick = (n: number) => {
+    vibrate(10);
+    setValue(String(n));
+    if (quickSubmit) submit(false, n);
   };
 
   // Klawiatura fizyczna (np. laptop przy tarczy).
@@ -383,9 +399,10 @@ export function NumpadInput({ scoreBefore, outMode, onCommit, prefs }: InputProp
         {PRESETS.map((n) => (
           <button
             key={n}
-            onClick={() => setValue(String(n))}
+            onClick={() => quick(n)}
             className={cn(
-              "h-10 rounded-md border border-line bg-surface2 font-mono text-sm font-semibold active:scale-95",
+              "rounded-md border border-line bg-surface2 font-mono font-semibold active:scale-95",
+              presetClass(presetSize),
               n === 180 && "border-accent/50 text-accent",
             )}
           >
@@ -395,20 +412,20 @@ export function NumpadInput({ scoreBefore, outMode, onCommit, prefs }: InputProp
       </div>
       <div className="grid grid-cols-3 gap-2">
         {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((k) => (
-          <button key={k} onClick={() => press(k)} className="h-14 rounded-lg border border-line bg-surface2 font-score text-3xl active:scale-95">
+          <button key={k} onClick={() => press(k)} className={cn("rounded-lg border border-line bg-surface2 font-score active:scale-95", keypadClass(keypadSize))}>
             {k}
           </button>
         ))}
-        <button onClick={() => setValue("")} className="h-14 rounded-lg border border-line bg-surface2 text-xs font-bold uppercase text-muted active:scale-95">
+        <button onClick={() => setValue("")} className={cn("rounded-lg border border-line bg-surface2 font-bold uppercase text-muted active:scale-95", keypadClass(keypadSize), "text-xs")}>
           Wyczyść
         </button>
-        <button onClick={() => press("0")} className="h-14 rounded-lg border border-line bg-surface2 font-score text-3xl active:scale-95">
+        <button onClick={() => press("0")} className={cn("rounded-lg border border-line bg-surface2 font-score active:scale-95", keypadClass(keypadSize))}>
           0
         </button>
         <button
           onClick={() => setValue((v) => v.slice(0, -1))}
           aria-label="Usuń cyfrę"
-          className="flex h-14 items-center justify-center rounded-lg border border-line bg-surface2 active:scale-95"
+          className={cn("flex items-center justify-center rounded-lg border border-line bg-surface2 active:scale-95", keypadClass(keypadSize))}
         >
           <Delete className="h-5 w-5" />
         </button>
