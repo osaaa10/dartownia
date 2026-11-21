@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { BarChart3, Download, History, Settings } from "lucide-react";
+import { ALargeSmall, BarChart3, Download, History, Settings } from "lucide-react";
 import { endEarly, uid } from "./engine/game";
 import { PLAYER_COLORS } from "./engine/game";
 import type { MatchSettings, Player } from "./engine/types";
@@ -8,11 +8,12 @@ import { DEFAULT_VOICE_STYLES, speech } from "./lib/speech";
 import { useAppData } from "./lib/store";
 import { GameScreen } from "./components/GameScreen";
 import { HistoryPanel, SettingsPanel, StatsPanel } from "./components/Panels";
+import { SizePanel } from "./components/SizeSettings";
 import { ContinueCard, MatchSetup, PlayerSetup, startNewGame } from "./components/Setup";
 import { Button, ConfirmDialog, Toast } from "./components/ui";
 import { Logo } from "./components/Logo";
 
-type Panel = "history" | "stats" | "settings" | null;
+type Panel = "history" | "stats" | "settings" | "size" | null;
 
 const freshPlayers = (): Player[] => [
   { id: uid(), name: "", color: PLAYER_COLORS[0] },
@@ -53,6 +54,10 @@ export default function App() {
     root.classList.add(s.theme);
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", s.theme === "dark" ? "#0b1416" : "#f1f4f3");
   }, [s.theme]);
+  useEffect(() => {
+    const scale = Math.min(1.4, Math.max(0.8, s.uiScale || 1));
+    document.documentElement.style.fontSize = `${16 * scale}px`;
+  }, [s.uiScale]);
   useEffect(() => {
     sound.enabled = s.sound;
     sound.volume = s.volume;
@@ -139,14 +144,19 @@ export default function App() {
         ) : (
           <>
             <header className="mb-5 flex items-center justify-between pt-1">
-              <div className="flex items-center gap-3">
-                <Logo className="h-12 w-12" />
-                <div>
-                  <h1 className="font-score text-4xl leading-none tracking-wider text-accent">Kanciapa Dart</h1>
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-muted">301 · 501 · 701 · offline</p>
+              <div className="flex min-w-0 items-center gap-2.5">
+                <Logo className="h-11 w-11 shrink-0" />
+                <div className="min-w-0">
+                  <h1 className="whitespace-nowrap font-score text-[2rem] leading-none tracking-wide text-accent min-[400px]:text-4xl">
+                    Kanciapa Dart
+                  </h1>
+                  <p className="whitespace-nowrap text-[11px] uppercase tracking-[0.15em] text-muted">301 · 501 · 701 · offline</p>
                 </div>
               </div>
-              <nav className="flex items-center">
+              <nav className="-mr-2 flex shrink-0 items-center">
+                <Button variant="ghost" size="icon" onClick={() => setPanel("size")} aria-label="Wygląd i rozmiar">
+                  <ALargeSmall className="h-5 w-5" />
+                </Button>
                 <Button variant="ghost" size="icon" onClick={() => setPanel("stats")} aria-label="Statystyki">
                   <BarChart3 className="h-5 w-5" />
                 </Button>
@@ -211,6 +221,7 @@ export default function App() {
         onConfirm={begin}
         onCancel={() => setConfirmReplace(false)}
       />
+      <SizePanel store={store} open={panel === "size"} onClose={() => setPanel(null)} />
       <HistoryPanel store={store} open={panel === "history"} onClose={() => setPanel(null)} />
       <StatsPanel store={store} open={panel === "stats"} onClose={() => setPanel(null)} />
       <SettingsPanel store={store} open={panel === "settings"} onClose={() => setPanel(null)} notify={notify} />

@@ -5,6 +5,7 @@ import {
   Crosshair,
   Grid3x3,
   Hash,
+  ALargeSmall,
   Maximize,
   Minimize,
   Pause,
@@ -24,6 +25,7 @@ import { speech } from "../lib/speech";
 import type { AppStore } from "../lib/store";
 import { cn, fmtNum, pl } from "../lib/util";
 import { BoardInput, KeypadInput, NumpadInput } from "./inputs";
+import { scoreClass, SizePanel } from "./SizeSettings";
 import { DoublesPicker, doublesText } from "./DoublesPicker";
 import { Button, ConfirmDialog, Modal } from "./ui";
 
@@ -72,6 +74,7 @@ export function GameScreen({ store, game, onPause, onNewGame, onOpenSettings, no
   const settings = store.data.settings;
   const view = useMemo(() => replay(game), [game]);
   const stats = useMemo(() => gameStats(game, view), [game, view]);
+  const [sizeOpen, setSizeOpen] = useState(false);
   const [flash, setFlash] = useState<"bust" | "max" | null>(null);
   const [isFs, setIsFs] = useState(!!document.fullscreenElement);
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
@@ -199,31 +202,38 @@ export function GameScreen({ store, game, onPause, onNewGame, onOpenSettings, no
           </div>
         </div>
       )}
+      <SizePanel store={store} open={sizeOpen} onClose={() => setSizeOpen(false)} />
       {/* Pasek górny */}
       <div className="flex items-center gap-1">
         <Button variant="ghost" size="sm" onClick={onPause} aria-label="Pauza — wróć do menu">
-          <Pause className="h-4 w-4" /> Menu
+          <Pause className="h-4 w-4" /> <span className="hidden min-[360px]:inline">Menu</span>
         </Button>
-        <div className="ml-auto flex rounded-lg border border-line bg-surface p-0.5">
+        <div className="ml-auto flex shrink-0 rounded-lg border border-line bg-surface p-0.5">
           {MODES.map((m) => (
             <button
               key={m.value}
               onClick={() => store.setSettings((s) => ({ ...s, inputMode: m.value }))}
               aria-pressed={settings.inputMode === m.value}
+              aria-label={m.label}
+              title={m.label}
               className={cn(
                 "flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-semibold",
                 settings.inputMode === m.value ? "bg-primary text-white" : "text-muted",
               )}
             >
-              <m.icon className="h-3.5 w-3.5" />
-              {m.label}
+              <m.icon className="h-4 w-4" />
+              {/* Na wąskim ekranie podpis tylko przy wybranym trybie. */}
+              <span className={cn(settings.inputMode !== m.value && "hidden sm:inline")}>{m.label}</span>
             </button>
           ))}
         </div>
-        <Button variant="ghost" size="icon" onClick={toggleFs} aria-label="Pełny ekran">
+        <Button variant="ghost" size="icon" className="shrink-0" onClick={() => setSizeOpen(true)} aria-label="Wygląd i rozmiar">
+          <ALargeSmall className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="icon" className="shrink-0" onClick={toggleFs} aria-label="Pełny ekran">
           {isFs ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
         </Button>
-        <Button variant="ghost" size="icon" onClick={onOpenSettings} aria-label="Ustawienia">
+        <Button variant="ghost" size="icon" className="shrink-0" onClick={onOpenSettings} aria-label="Ustawienia">
           <Settings className="h-4 w-4" />
         </Button>
       </div>
@@ -241,7 +251,7 @@ export function GameScreen({ store, game, onPause, onNewGame, onOpenSettings, no
             <div className="truncate font-score text-4xl tracking-wide">{player.name}</div>
             <div className="text-xs text-muted">{describeSettings(game.settings)}</div>
           </div>
-          <div className={cn("font-score text-[4.75rem] leading-[0.85]", onCheckout && "text-accent")}>{score}</div>
+          <div className={cn("font-score leading-[0.85]", scoreClass(settings.scoreSize), onCheckout && "text-accent")}>{score}</div>
         </div>
       </div>
 
@@ -262,7 +272,15 @@ export function GameScreen({ store, game, onPause, onNewGame, onOpenSettings, no
           ) : settings.inputMode === "keypad" ? (
             <KeypadInput scoreBefore={score} outMode={game.settings.outMode} onCommit={commit} prefs={player.doubles} />
           ) : (
-            <NumpadInput scoreBefore={score} outMode={game.settings.outMode} onCommit={commit} prefs={player.doubles} />
+            <NumpadInput
+              scoreBefore={score}
+              outMode={game.settings.outMode}
+              onCommit={commit}
+              prefs={player.doubles}
+              presetSize={settings.presetSize}
+              keypadSize={settings.keypadSize}
+              quickSubmit={settings.quickSubmit}
+            />
           )}
         </div>
       )}

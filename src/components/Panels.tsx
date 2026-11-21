@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, Flag, Play, Trash2, Trophy, Upload, Volume2 } from "lucide-react";
 import { SOUND_EVENTS, sound, type SoundEvent } from "../lib/audio";
 import { DART_NAMINGS, DEFAULT_VOICE_STYLES, VOICE_RANGES, VOICE_STYLES, speech, type BullName, type DartNaming, type RangeKey, type VoiceStyle } from "../lib/speech";
+import { SizeControls } from "./SizeSettings";
 import { describeSettings, replay, resumeEarly } from "../engine/game";
 import { careerStats, gameStats, type CareerStats, type StatsFilter } from "../engine/stats";
 import type { Game } from "../engine/types";
@@ -480,6 +481,13 @@ export function SettingsPanel({
             ]}
           />
         </div>
+
+        <details className="rounded-xl border border-line bg-surface2 px-4 py-3">
+          <summary className="cursor-pointer text-sm font-semibold">Wygląd i rozmiar</summary>
+          <div className="mt-3">
+            <SizeControls store={store} />
+          </div>
+        </details>
 
         <AudioSettings store={store} open={open} />
 
