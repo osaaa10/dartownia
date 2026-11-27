@@ -39,7 +39,7 @@ const SIZE4 = [
 ];
 
 /** Ustawienia wyglądu: skala interfejsu, rozmiary przycisków i szybkie zatwierdzanie. */
-export function SizeControls({ store }: { store: AppStore }) {
+export function SizeControls({ store, hideQuickSubmit }: { store: AppStore; hideQuickSubmit?: boolean }) {
   const s = store.data.settings;
   const set = store.setSettings;
   const scale = s.uiScale || 1;
@@ -114,11 +114,13 @@ export function SizeControls({ store }: { store: AppStore }) {
         />
       </div>
 
+      {!hideQuickSubmit && (
       <div className="rounded-xl border border-line bg-surface2 px-4">
         <Row label="Szybki wynik od razu zatwierdza" desc="Stuknięcie np. 60 zapisuje kolejkę bez „Zatwierdź”. Pomyłkę cofniesz strzałką.">
           <Switch checked={s.quickSubmit} onChange={(v) => set((x) => ({ ...x, quickSubmit: v }))} label="Szybki wynik od razu zatwierdza" />
         </Row>
       </div>
+      )}
 
       <Button
         variant="ghost"
